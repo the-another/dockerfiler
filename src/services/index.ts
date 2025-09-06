@@ -10,3 +10,4 @@ export { ConfigLoader, type ConfigLoaderOptions, type ConfigFormat } from './con
 export { ConfigValidator, type ValidationResult, type ConfigType } from './config-validator';
 export { ValidationEngine } from './validation-engine';
 export { DockerBuildService, type DockerBuildOptions } from './docker-build';
+export { ErrorHandlerService } from './error-handler';

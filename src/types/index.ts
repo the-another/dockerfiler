@@ -22,3 +22,6 @@ export * from './templates';
 
 // Export all Docker integration interfaces
 export * from './docker';
+
+// Export all service-related type definitions
+export * from './services';
