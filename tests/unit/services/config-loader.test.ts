@@ -360,7 +360,7 @@ s6Overlay:
         configLoader.loadMultipleConfigs<BaseConfig>(filePaths, {
           validate: false,
         })
-      ).rejects.toThrow('Failed to load multiple configuration files');
+      ).rejects.toThrow('Invalid JSON in configuration file');
     });
   });
 
@@ -493,7 +493,7 @@ s6Overlay:
           filePath,
           validate: false,
         })
-      ).rejects.toThrow('Failed to read configuration file: /path/to/config.json');
+      ).rejects.toThrow('Failed to load configuration file: /path/to/config.json');
     });
 
     it('should provide helpful error suggestions', async () => {

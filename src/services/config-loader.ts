@@ -10,6 +10,7 @@ import { resolve, extname } from 'path';
 import yaml from 'js-yaml';
 import { ConfigLoaderError, ErrorType, ErrorSeverity } from '@/types';
 import type { BaseConfig, FinalConfig } from '@/types';
+import { ErrorHandlerService } from './error-handler';
 
 /**
  * Configuration file format types
@@ -48,6 +49,19 @@ interface ConfigCacheEntry {
 export class ConfigLoader {
   private readonly cache = new Map<string, ConfigCacheEntry>();
   private readonly defaultCacheTtl = 5 * 60 * 1000; // 5 minutes
+  private readonly errorHandler: ErrorHandlerService;
+
+  constructor(errorHandler?: ErrorHandlerService) {
+    this.errorHandler =
+      errorHandler ||
+      new ErrorHandlerService({
+        maxRetries: 2,
+        retryDelay: 1000,
+        enableRecovery: true,
+        enableClassification: true,
+        enableUserFriendlyMessages: true,
+      });
+  }
 
   /**
    * Loads a configuration file
@@ -60,7 +74,25 @@ export class ConfigLoader {
       const resolvedPath = this.resolveConfigPath(options.filePath);
 
       // Check if file exists
-      await this.validateFileExists(resolvedPath);
+      try {
+        await access(resolvedPath);
+      } catch (error) {
+        const configError = new ConfigLoaderError(
+          ErrorType.CONFIG_LOAD_ERROR,
+          `Configuration file not found: ${resolvedPath}`,
+          ErrorSeverity.HIGH,
+          { filePath: resolvedPath, error: error instanceof Error ? error.message : String(error) },
+          [
+            'Check that the file path is correct',
+            'Verify file permissions',
+            'Ensure the file exists',
+          ]
+        );
+        await this.errorHandler.handleError(configError, {
+          operation: 'validateFileExists',
+          filePath: resolvedPath,
+        });
+      }
 
       // Check cache if enabled
       if (options.enableCache !== false) {
@@ -71,10 +103,116 @@ export class ConfigLoader {
       }
 
       // Determine file format
-      const format = options.format || this.detectFormat(resolvedPath);
+      let format: ConfigFormat;
+      try {
+        format =
+          options.format ||
+          (() => {
+            const ext = extname(resolvedPath).toLowerCase();
+            switch (ext) {
+              case '.json':
+                return 'json';
+              case '.yaml':
+              case '.yml':
+                return 'yaml';
+              default:
+                throw new ConfigLoaderError(
+                  ErrorType.CONFIG_LOAD_ERROR,
+                  `Unsupported configuration file format: ${ext}`,
+                  ErrorSeverity.MEDIUM,
+                  { filePath: resolvedPath, extension: ext },
+                  [
+                    'Use .json for JSON configuration files',
+                    'Use .yaml or .yml for YAML configuration files',
+                  ]
+                );
+            }
+          })();
+      } catch (error) {
+        await this.errorHandler.handleError(error as Error, {
+          operation: 'detectFormat',
+          filePath: resolvedPath,
+        });
+        throw error; // Re-throw to ensure function exits
+      }
 
       // Read and parse the file
-      const config = await this.parseConfigFile<T>(resolvedPath, format);
+      const content = await readFile(resolvedPath, 'utf-8');
+      let config: T;
+      try {
+        config = (() => {
+          switch (format) {
+            case 'json':
+              try {
+                return JSON.parse(content) as T;
+              } catch (error) {
+                throw new ConfigLoaderError(
+                  ErrorType.CONFIG_LOAD_ERROR,
+                  `Invalid JSON in configuration file: ${resolvedPath}`,
+                  ErrorSeverity.HIGH,
+                  {
+                    filePath: resolvedPath,
+                    error: error instanceof Error ? error.message : String(error),
+                  },
+                  ['Check JSON syntax', 'Validate JSON structure', 'Use a JSON validator tool']
+                );
+              }
+            case 'yaml':
+              try {
+                return yaml.load(content) as T;
+              } catch (error) {
+                throw new ConfigLoaderError(
+                  ErrorType.CONFIG_LOAD_ERROR,
+                  `Invalid YAML in configuration file: ${resolvedPath}`,
+                  ErrorSeverity.HIGH,
+                  {
+                    filePath: resolvedPath,
+                    error: error instanceof Error ? error.message : String(error),
+                  },
+                  ['Check YAML syntax', 'Validate YAML indentation', 'Use a YAML validator tool']
+                );
+              }
+            default:
+              throw new ConfigLoaderError(
+                ErrorType.CONFIG_LOAD_ERROR,
+                `Unsupported configuration format: ${format}`,
+                ErrorSeverity.MEDIUM,
+                { filePath: resolvedPath, format }
+              );
+          }
+        })();
+      } catch (error) {
+        if (error instanceof ConfigLoaderError) {
+          await this.errorHandler.handleError(error, {
+            operation: 'parseConfigFile',
+            filePath: resolvedPath,
+            format,
+          });
+          throw error; // Re-throw to ensure function exits
+        } else {
+          const configError = new ConfigLoaderError(
+            ErrorType.CONFIG_LOAD_ERROR,
+            `Failed to parse configuration file: ${resolvedPath}`,
+            ErrorSeverity.HIGH,
+            {
+              filePath: resolvedPath,
+              format,
+              error: error instanceof Error ? error.message : String(error),
+            },
+            [
+              'Check file format and syntax',
+              'Verify file permissions',
+              'Ensure file is not corrupted',
+            ]
+          );
+          await this.errorHandler.handleError(configError, {
+            operation: 'parseConfigFile',
+            filePath: resolvedPath,
+            format,
+          });
+          throw configError; // Re-throw to ensure function exits
+        }
+      }
 
       // Cache the result if enabled
       if (options.enableCache !== false) {
@@ -83,7 +221,36 @@ export class ConfigLoader {
 
       return config;
     } catch (error) {
-      this.handleConfigLoadError(error, options.filePath);
+      if (error instanceof ConfigLoaderError) {
+        await this.errorHandler.handleError(error, {
+          operation: 'loadConfig',
+          filePath: options.filePath,
+          format: options.format,
+        });
+        throw error; // Re-throw to ensure function exits
+      } else {
+        const configError = new ConfigLoaderError(
+          ErrorType.CONFIG_LOAD_ERROR,
+          `Failed to load configuration file: ${options.filePath}`,
+          ErrorSeverity.HIGH,
+          {
+            filePath: options.filePath,
+            format: options.format,
+            error: error instanceof Error ? error.message : String(error),
+          },
+          [
+            'Check file path and permissions',
+            'Verify file format',
+            'Ensure file exists and is readable',
+          ]
+        );
+        await this.errorHandler.handleError(configError, {
+          operation: 'loadConfig',
+          filePath: options.filePath,
+          format: options.format,
+        });
+        throw configError; // Re-throw to ensure function exits
+      }
     }
   }
 
@@ -102,19 +269,60 @@ export class ConfigLoader {
         filePaths.map(filePath => this.loadConfig<T>({ ...options, filePath }))
       );
 
-      return this.mergeConfigs<T>(configs);
+      try {
+        if (configs.length === 0) {
+          throw new ConfigLoaderError(
+            ErrorType.CONFIG_LOAD_ERROR,
+            'No configuration files provided for merging',
+            ErrorSeverity.MEDIUM,
+            { configCount: configs.length }
+          );
+        }
+
+        if (configs.length === 1) {
+          return configs[0]!;
+        }
+
+        // Deep merge configurations (later configs override earlier ones)
+        return configs.reduce((merged, config) => {
+          return this.deepMerge(merged, config);
+        }, {} as T);
+      } catch (error) {
+        if (error instanceof ConfigLoaderError) {
+          await this.errorHandler.handleError(error, {
+            operation: 'mergeConfigs',
+            configCount: configs.length,
+          });
+          throw error; // Re-throw to ensure function exits
+        } else {
+          const mergeError = new ConfigLoaderError(
+            ErrorType.CONFIG_LOAD_ERROR,
+            'Failed to merge configuration files',
+            ErrorSeverity.HIGH,
+            {
+              configCount: configs.length,
+              error: error instanceof Error ? error.message : String(error),
+            },
+            [
+              'Check for conflicting configuration keys',
+              'Verify configuration structure compatibility',
+              'Ensure all configurations are valid',
+            ]
+          );
+          await this.errorHandler.handleError(mergeError, {
+            operation: 'mergeConfigs',
+            configCount: configs.length,
+          });
+          throw mergeError; // Re-throw to ensure function exits
+        }
+      }
     } catch (error) {
-      throw new ConfigLoaderError(
-        ErrorType.CONFIG_LOAD_ERROR,
-        'Failed to load multiple configuration files',
-        ErrorSeverity.HIGH,
-        { filePaths, error: error instanceof Error ? error.message : String(error) },
-        [
-          'Check that all configuration files exist',
-          'Verify file permissions',
-          'Ensure configuration files are valid JSON or YAML',
-        ]
-      );
+      await this.errorHandler.handleError(error as Error, {
+        operation: 'loadMultipleConfigs',
+        filePaths,
+        configCount: filePaths.length,
+      });
+      throw error; // Re-throw to ensure function exits
     }
   }
 
@@ -154,179 +362,6 @@ export class ConfigLoader {
 
     // If relative path, resolve from current working directory
     return resolve(process.cwd(), filePath);
-  }
-
-  /**
-   * Validates that a file exists and is readable
-   * @param filePath File path to validate
-   */
-  private async validateFileExists(filePath: string): Promise<void> {
-    try {
-      await access(filePath);
-    } catch (error) {
-      throw new ConfigLoaderError(
-        ErrorType.CONFIG_LOAD_ERROR,
-        `Configuration file not found: ${filePath}`,
-        ErrorSeverity.HIGH,
-        { filePath, error: error instanceof Error ? error.message : String(error) },
-        ['Check that the file path is correct', 'Verify file permissions', 'Ensure the file exists']
-      );
-    }
-  }
-
-  /**
-   * Detects configuration file format from extension
-   * @param filePath File path
-   * @returns Detected format
-   */
-  private detectFormat(filePath: string): ConfigFormat {
-    const ext = extname(filePath).toLowerCase();
-
-    switch (ext) {
-      case '.json':
-        return 'json';
-      case '.yaml':
-      case '.yml':
-        return 'yaml';
-      default:
-        throw new ConfigLoaderError(
-          ErrorType.CONFIG_LOAD_ERROR,
-          `Unsupported configuration file format: ${ext}`,
-          ErrorSeverity.MEDIUM,
-          { filePath, extension: ext },
-          [
-            'Use .json for JSON configuration files',
-            'Use .yaml or .yml for YAML configuration files',
-          ]
-        );
-    }
-  }
-
-  /**
-   * Parses a configuration file based on format
-   * @param filePath File path
-   * @param format File format
-   * @returns Parsed configuration object
-   */
-  private async parseConfigFile<T extends BaseConfig | FinalConfig>(
-    filePath: string,
-    format: ConfigFormat
-  ): Promise<T> {
-    try {
-      const content = await readFile(filePath, 'utf-8');
-
-      switch (format) {
-        case 'json':
-          return this.parseJSON<T>(content, filePath);
-        case 'yaml':
-          return this.parseYAML<T>(content, filePath);
-        default:
-          throw new ConfigLoaderError(
-            ErrorType.CONFIG_LOAD_ERROR,
-            `Unsupported configuration format: ${format}`,
-            ErrorSeverity.MEDIUM,
-            { filePath, format }
-          );
-      }
-    } catch (error) {
-      if (error instanceof ConfigLoaderError) {
-        throw error;
-      }
-
-      throw new ConfigLoaderError(
-        ErrorType.CONFIG_LOAD_ERROR,
-        `Failed to read configuration file: ${filePath}`,
-        ErrorSeverity.HIGH,
-        { filePath, error: error instanceof Error ? error.message : String(error) },
-        [
-          'Check file permissions',
-          'Verify file is not corrupted',
-          'Ensure file is valid JSON or YAML',
-        ]
-      );
-    }
-  }
-
-  /**
-   * Parses JSON configuration content
-   * @param content JSON content
-   * @param filePath File path for error context
-   * @returns Parsed configuration object
-   */
-  private parseJSON<T extends BaseConfig | FinalConfig>(content: string, filePath: string): T {
-    try {
-      return JSON.parse(content) as T;
-    } catch (error) {
-      throw new ConfigLoaderError(
-        ErrorType.CONFIG_LOAD_ERROR,
-        `Invalid JSON in configuration file: ${filePath}`,
-        ErrorSeverity.HIGH,
-        { filePath, error: error instanceof Error ? error.message : String(error) },
-        ['Check JSON syntax', 'Validate JSON structure', 'Use a JSON validator tool']
-      );
-    }
-  }
-
-  /**
-   * Parses YAML configuration content
-   * @param content YAML content
-   * @param filePath File path for error context
-   * @returns Parsed configuration object
-   */
-  private parseYAML<T extends BaseConfig | FinalConfig>(content: string, filePath: string): T {
-    try {
-      return yaml.load(content) as T;
-    } catch (error) {
-      throw new ConfigLoaderError(
-        ErrorType.CONFIG_LOAD_ERROR,
-        `Invalid YAML in configuration file: ${filePath}`,
-        ErrorSeverity.HIGH,
-        { filePath, error: error instanceof Error ? error.message : String(error) },
-        ['Check YAML syntax', 'Validate YAML indentation', 'Use a YAML validator tool']
-      );
-    }
-  }
-
-  /**
-   * Merges multiple configuration objects
-   * @param configs Array of configuration objects
-   * @returns Merged configuration object
-   */
-  private mergeConfigs<T extends BaseConfig | FinalConfig>(configs: readonly T[]): T {
-    if (configs.length === 0) {
-      throw new ConfigLoaderError(
-        ErrorType.CONFIG_LOAD_ERROR,
-        'No configuration files provided for merging',
-        ErrorSeverity.MEDIUM,
-        { configCount: configs.length }
-      );
-    }
-
-    if (configs.length === 1) {
-      return configs[0]!;
-    }
-
-    try {
-      // Deep merge configurations (later configs override earlier ones)
-      return configs.reduce((merged, config) => {
-        return this.deepMerge(merged, config);
-      }, {} as T);
-    } catch (error) {
-      throw new ConfigLoaderError(
-        ErrorType.CONFIG_LOAD_ERROR,
-        'Failed to merge configuration files',
-        ErrorSeverity.HIGH,
-        {
-          configCount: configs.length,
-          error: error instanceof Error ? error.message : String(error),
-        },
-        [
-          'Check for conflicting configuration keys',
-          'Verify configuration structure compatibility',
-          'Ensure all configurations are valid',
-        ]
-      );
-    }
   }
 
   /**
@@ -401,21 +436,10 @@ export class ConfigLoader {
   }
 
   /**
-   * Handles configuration loading errors
-   * @param error Error object
-   * @param filePath File path for context
+   * Gets the error handler instance
+   * @returns ErrorHandlerService instance
    */
-  private handleConfigLoadError(error: unknown, filePath: string): never {
-    if (error instanceof ConfigLoaderError) {
-      throw error;
-    }
-
-    throw new ConfigLoaderError(
-      ErrorType.CONFIG_LOAD_ERROR,
-      `Unexpected error loading configuration: ${filePath}`,
-      ErrorSeverity.HIGH,
-      { filePath, error: error instanceof Error ? error.message : String(error) },
-      ['Check file permissions', 'Verify file format', 'Ensure file is not corrupted']
-    );
+  getErrorHandler(): ErrorHandlerService {
+    return this.errorHandler;
   }
 }

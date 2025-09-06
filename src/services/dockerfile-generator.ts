@@ -5,6 +5,9 @@
  * instead of using Handlebars templates.
  */
 
+import { ErrorHandlerService } from './error-handler';
+import { ConfigLoaderError, ErrorType, ErrorSeverity } from '@/types';
+
 export interface BuildConfig {
   phpVersion: string;
   platform: 'alpine' | 'ubuntu';
@@ -26,23 +29,61 @@ export interface BuildConfig {
 }
 
 export class DockerfileGeneratorService {
+  private readonly errorHandler: ErrorHandlerService;
+
+  constructor(errorHandler?: ErrorHandlerService) {
+    this.errorHandler =
+      errorHandler ||
+      new ErrorHandlerService({
+        maxRetries: 2,
+        retryDelay: 1000,
+        enableRecovery: true,
+        enableClassification: true,
+        enableUserFriendlyMessages: true,
+      });
+  }
+
   async generateDockerfile(
     config: BuildConfig,
     architecture: 'arm64' | 'amd64' | 'all'
   ): Promise<string> {
-    // TODO: Implement dockerfile-generator integration
-    console.log(
-      `🔨 Generating Dockerfile for PHP ${config.phpVersion} on ${config.platform} (${architecture})`
-    );
+    try {
+      // Validate input parameters
+      this.validateBuildConfig(config);
+      this.validateArchitecture(architecture);
 
-    // Placeholder implementation - will be replaced with actual dockerfile-generator usage
-    return this.generatePlaceholderDockerfile(config, architecture);
+      console.log(
+        `🔨 Generating Dockerfile for PHP ${config.phpVersion} on ${config.platform} (${architecture})`
+      );
+
+      // Placeholder implementation - will be replaced with actual dockerfile-generator usage
+      return this.generatePlaceholderDockerfile(config, architecture);
+    } catch (error) {
+      await this.errorHandler.handleError(error as Error, {
+        operation: 'generateDockerfile',
+        phpVersion: config.phpVersion,
+        platform: config.platform,
+        architecture,
+      });
+      throw error; // Re-throw to ensure function exits
+    }
   }
 
-  async writeOutput(_dockerfile: string, outputPath: string): Promise<void> {
-    // TODO: Implement file writing logic
-    console.log(`📝 Writing Dockerfile to ${outputPath}`);
-    console.log('⚠️  File writing not yet implemented');
+  async writeOutput(dockerfile: string, outputPath: string): Promise<void> {
+    try {
+      // Validate input parameters
+      this.validateDockerfile(dockerfile);
+      this.validateOutputPath(outputPath);
+
+      console.log(`📝 Writing Dockerfile to ${outputPath}`);
+      console.log('⚠️  File writing not yet implemented');
+    } catch (error) {
+      await this.errorHandler.handleError(error as Error, {
+        operation: 'writeOutput',
+        outputPath,
+        dockerfileLength: dockerfile.length,
+      });
+    }
   }
 
   private generatePlaceholderDockerfile(
@@ -104,6 +145,144 @@ export class DockerfileGeneratorService {
     } else if (platform === 'ubuntu') {
       return architecture === 'arm64' ? 'arm64v8/ubuntu:22.04' : 'amd64/ubuntu:22.04';
     }
-    throw new Error(`Unsupported platform: ${platform}`);
+    throw new ConfigLoaderError(
+      ErrorType.VALIDATION_ERROR,
+      `Unsupported platform: ${platform}`,
+      ErrorSeverity.HIGH,
+      { platform, architecture },
+      ['Use "alpine" or "ubuntu" as the platform']
+    );
+  }
+
+  /**
+   * Validates build configuration
+   * @param config Build configuration to validate
+   */
+  private validateBuildConfig(config: BuildConfig): void {
+    if (!config) {
+      throw new ConfigLoaderError(
+        ErrorType.VALIDATION_ERROR,
+        'Build configuration is required',
+        ErrorSeverity.HIGH,
+        { config },
+        ['Provide a valid BuildConfig object']
+      );
+    }
+
+    if (!config.phpVersion || typeof config.phpVersion !== 'string') {
+      throw new ConfigLoaderError(
+        ErrorType.VALIDATION_ERROR,
+        'PHP version is required and must be a string',
+        ErrorSeverity.HIGH,
+        { phpVersion: config.phpVersion, type: typeof config.phpVersion },
+        ['Provide a valid PHP version string (e.g., "8.3", "8.4")']
+      );
+    }
+
+    if (!config.platform || !['alpine', 'ubuntu'].includes(config.platform)) {
+      throw new ConfigLoaderError(
+        ErrorType.VALIDATION_ERROR,
+        'Platform must be either "alpine" or "ubuntu"',
+        ErrorSeverity.HIGH,
+        { platform: config.platform, type: typeof config.platform },
+        ['Use "alpine" for Alpine Linux or "ubuntu" for Ubuntu']
+      );
+    }
+
+    if (!config.packages || !Array.isArray(config.packages) || config.packages.length === 0) {
+      throw new ConfigLoaderError(
+        ErrorType.VALIDATION_ERROR,
+        'Packages array is required and must contain at least one package',
+        ErrorSeverity.HIGH,
+        { packages: config.packages, type: typeof config.packages },
+        ['Provide an array of package names to install']
+      );
+    }
+
+    if (!config.security) {
+      throw new ConfigLoaderError(
+        ErrorType.VALIDATION_ERROR,
+        'Security configuration is required',
+        ErrorSeverity.HIGH,
+        { security: config.security },
+        ['Provide a valid security configuration object']
+      );
+    }
+  }
+
+  /**
+   * Validates architecture parameter
+   * @param architecture Architecture to validate
+   */
+  private validateArchitecture(architecture: string): void {
+    if (!architecture || !['arm64', 'amd64', 'all'].includes(architecture)) {
+      throw new ConfigLoaderError(
+        ErrorType.VALIDATION_ERROR,
+        'Architecture must be "arm64", "amd64", or "all"',
+        ErrorSeverity.HIGH,
+        { architecture, type: typeof architecture },
+        ['Use "arm64" for ARM64, "amd64" for AMD64, or "all" for both']
+      );
+    }
+  }
+
+  /**
+   * Validates Dockerfile content
+   * @param dockerfile Dockerfile content to validate
+   */
+  private validateDockerfile(dockerfile: string): void {
+    if (!dockerfile || typeof dockerfile !== 'string') {
+      throw new ConfigLoaderError(
+        ErrorType.VALIDATION_ERROR,
+        'Dockerfile content is required and must be a string',
+        ErrorSeverity.HIGH,
+        { dockerfile: dockerfile, type: typeof dockerfile },
+        ['Provide valid Dockerfile content as a string']
+      );
+    }
+
+    if (dockerfile.trim().length === 0) {
+      throw new ConfigLoaderError(
+        ErrorType.VALIDATION_ERROR,
+        'Dockerfile content cannot be empty',
+        ErrorSeverity.HIGH,
+        { dockerfileLength: dockerfile.length },
+        ['Provide non-empty Dockerfile content']
+      );
+    }
+  }
+
+  /**
+   * Validates output path
+   * @param outputPath Output path to validate
+   */
+  private validateOutputPath(outputPath: string): void {
+    if (!outputPath || typeof outputPath !== 'string') {
+      throw new ConfigLoaderError(
+        ErrorType.VALIDATION_ERROR,
+        'Output path is required and must be a string',
+        ErrorSeverity.HIGH,
+        { outputPath, type: typeof outputPath },
+        ['Provide a valid file path for the output']
+      );
+    }
+
+    if (outputPath.trim().length === 0) {
+      throw new ConfigLoaderError(
+        ErrorType.VALIDATION_ERROR,
+        'Output path cannot be empty',
+        ErrorSeverity.HIGH,
+        { outputPath },
+        ['Provide a non-empty output path']
+      );
+    }
+  }
+
+  /**
+   * Gets the error handler instance
+   * @returns ErrorHandlerService instance
+   */
+  getErrorHandler(): ErrorHandlerService {
+    return this.errorHandler;
   }
 }

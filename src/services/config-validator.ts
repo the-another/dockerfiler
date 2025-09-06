@@ -9,6 +9,7 @@ import Joi from 'joi';
 import { ConfigLoaderError, ErrorType, ErrorSeverity } from '@/types';
 import type { BaseConfig, FinalConfig, PlatformConfig } from '@/types';
 import { baseConfigSchema, finalConfigSchema, platformConfigSchema } from '@/validators';
+import { ErrorHandlerService } from './error-handler';
 
 // Constants for repeated string literals
 const CONFIG_TYPE_SUGGESTIONS = ['Use one of: base, platform, final'];
@@ -46,27 +47,45 @@ const validationSchemas = {
  * Handles validation of configuration objects using organized Joi schemas
  */
 export class ConfigValidator {
+  private readonly errorHandler: ErrorHandlerService;
+
+  constructor(errorHandler?: ErrorHandlerService) {
+    this.errorHandler =
+      errorHandler ||
+      new ErrorHandlerService({
+        maxRetries: 1,
+        retryDelay: 500,
+        enableRecovery: false,
+        enableClassification: true,
+        enableUserFriendlyMessages: true,
+      });
+  }
   /**
    * Validates a configuration object against the specified schema
    * @param config Configuration object to validate
    * @param configType Type of configuration to validate against
    * @returns Validation result with success status and data/errors
    */
-  validateConfig<T extends BaseConfig | FinalConfig | PlatformConfig>(
+  async validateConfig<T extends BaseConfig | FinalConfig | PlatformConfig>(
     config: unknown,
     configType: ConfigType
-  ): ValidationResult<T> {
+  ): Promise<ValidationResult<T>> {
     try {
       const schema = validationSchemas[configType];
 
       if (!schema) {
-        throw new ConfigLoaderError(
+        const unknownTypeError = new ConfigLoaderError(
           ErrorType.VALIDATION_ERROR,
           `Unknown configuration type: ${configType}`,
           ErrorSeverity.HIGH,
           { configType },
           CONFIG_TYPE_SUGGESTIONS
         );
+        await this.errorHandler.handleError(unknownTypeError, {
+          operation: 'validateConfig',
+          configType,
+        });
+        throw unknownTypeError; // Re-throw to ensure function exits
       }
 
       const { error, value } = schema.validate(config, {
@@ -90,20 +109,21 @@ export class ConfigValidator {
       };
     } catch (error) {
       if (error instanceof ConfigLoaderError) {
-        throw error;
+        await this.errorHandler.handleError(error, {
+          operation: 'validateConfig',
+          configType,
+        });
+        throw error; // Re-throw to ensure function exits
+      } else {
+        // For unexpected errors during validation, return a failed result
+        return {
+          isValid: false,
+          errors: [
+            `Unexpected validation error: ${error instanceof Error ? error.message : String(error)}`,
+          ],
+          details: error,
+        };
       }
-
-      throw new ConfigLoaderError(
-        ErrorType.VALIDATION_ERROR,
-        'Configuration validation failed',
-        ErrorSeverity.HIGH,
-        { configType, error: error instanceof Error ? error.message : String(error) },
-        [
-          'Check configuration structure',
-          'Verify all required fields are present',
-          'Ensure field values are valid',
-        ]
-      );
     }
   }
 
@@ -112,8 +132,8 @@ export class ConfigValidator {
    * @param config Configuration object to validate
    * @returns Validation result
    */
-  validateBaseConfig(config: unknown): ValidationResult<BaseConfig> {
-    return this.validateConfig<BaseConfig>(config, 'base');
+  async validateBaseConfig(config: unknown): Promise<ValidationResult<BaseConfig>> {
+    return await this.validateConfig<BaseConfig>(config, 'base');
   }
 
   /**
@@ -121,8 +141,8 @@ export class ConfigValidator {
    * @param config Configuration object to validate
    * @returns Validation result
    */
-  validatePlatformConfig(config: unknown): ValidationResult<PlatformConfig> {
-    return this.validateConfig<PlatformConfig>(config, 'platform');
+  async validatePlatformConfig(config: unknown): Promise<ValidationResult<PlatformConfig>> {
+    return await this.validateConfig<PlatformConfig>(config, 'platform');
   }
 
   /**
@@ -130,8 +150,8 @@ export class ConfigValidator {
    * @param config Configuration object to validate
    * @returns Validation result
    */
-  validateFinalConfig(config: unknown): ValidationResult<FinalConfig> {
-    return this.validateConfig<FinalConfig>(config, 'final');
+  async validateFinalConfig(config: unknown): Promise<ValidationResult<FinalConfig>> {
+    return await this.validateConfig<FinalConfig>(config, 'final');
   }
 
   /**
@@ -140,11 +160,14 @@ export class ConfigValidator {
    * @param configType Type of configuration to validate against
    * @returns Array of validation results
    */
-  validateMultipleConfigs<T extends BaseConfig | FinalConfig | PlatformConfig>(
+  async validateMultipleConfigs<T extends BaseConfig | FinalConfig | PlatformConfig>(
     configs: readonly unknown[],
     configType: ConfigType
-  ): readonly ValidationResult<T>[] {
-    return configs.map(config => this.validateConfig<T>(config, configType));
+  ): Promise<readonly ValidationResult<T>[]> {
+    const results = await Promise.all(
+      configs.map(config => this.validateConfig<T>(config, configType))
+    );
+    return results;
   }
 
   /**
@@ -154,14 +177,14 @@ export class ConfigValidator {
    * @returns Validated configuration object
    * @throws ConfigLoaderError if validation fails
    */
-  validateConfigOrThrow<T extends BaseConfig | FinalConfig | PlatformConfig>(
+  async validateConfigOrThrow<T extends BaseConfig | FinalConfig | PlatformConfig>(
     config: unknown,
     configType: ConfigType
-  ): T {
-    const result = this.validateConfig<T>(config, configType);
+  ): Promise<T> {
+    const result = await this.validateConfig<T>(config, configType);
 
     if (!result.isValid) {
-      throw new ConfigLoaderError(
+      const validationError = new ConfigLoaderError(
         ErrorType.VALIDATION_ERROR,
         `Configuration validation failed for type: ${configType}`,
         ErrorSeverity.HIGH,
@@ -177,6 +200,11 @@ export class ConfigValidator {
           'Review validation error messages for specific issues',
         ]
       );
+      await this.errorHandler.handleError(validationError, {
+        operation: 'validateConfigOrThrow',
+        configType,
+        errors: result.errors,
+      });
     }
 
     return result.data!;
@@ -188,8 +216,8 @@ export class ConfigValidator {
    * @param configType Type of configuration to validate against
    * @returns True if valid, false otherwise
    */
-  isConfigValid(config: unknown, configType: ConfigType): boolean {
-    const result = this.validateConfig(config, configType);
+  async isConfigValid(config: unknown, configType: ConfigType): Promise<boolean> {
+    const result = await this.validateConfig(config, configType);
     return result.isValid;
   }
 
@@ -198,17 +226,22 @@ export class ConfigValidator {
    * @param configType Type of configuration
    * @returns Joi schema for the configuration type
    */
-  getSchema(configType: ConfigType): Joi.ObjectSchema {
+  async getSchema(configType: ConfigType): Promise<Joi.ObjectSchema> {
     const schema = validationSchemas[configType];
 
     if (!schema) {
-      throw new ConfigLoaderError(
+      const unknownTypeError = new ConfigLoaderError(
         ErrorType.VALIDATION_ERROR,
         `Unknown configuration type: ${configType}`,
         ErrorSeverity.HIGH,
         { configType },
         ['Use one of: base, platform, final']
       );
+      await this.errorHandler.handleError(unknownTypeError, {
+        operation: 'getSchema',
+        configType,
+      });
+      throw unknownTypeError; // Re-throw to ensure function exits
     }
 
     return schema;
@@ -247,22 +280,27 @@ export class ConfigValidator {
    * @param options Joi validation options
    * @returns Validation result
    */
-  validateConfigWithOptions<T extends BaseConfig | FinalConfig | PlatformConfig>(
+  async validateConfigWithOptions<T extends BaseConfig | FinalConfig | PlatformConfig>(
     config: unknown,
     configType: ConfigType,
     options: Joi.ValidationOptions
-  ): ValidationResult<T> {
+  ): Promise<ValidationResult<T>> {
     try {
       const schema = validationSchemas[configType];
 
       if (!schema) {
-        throw new ConfigLoaderError(
+        const unknownTypeError = new ConfigLoaderError(
           ErrorType.VALIDATION_ERROR,
           `Unknown configuration type: ${configType}`,
           ErrorSeverity.HIGH,
           { configType },
           CONFIG_TYPE_SUGGESTIONS
         );
+        await this.errorHandler.handleError(unknownTypeError, {
+          operation: 'validateConfigWithOptions',
+          configType,
+        });
+        throw unknownTypeError; // Re-throw to ensure function exits
       }
 
       const { error, value } = schema.validate(config, options);
@@ -281,20 +319,29 @@ export class ConfigValidator {
       };
     } catch (error) {
       if (error instanceof ConfigLoaderError) {
-        throw error;
+        await this.errorHandler.handleError(error, {
+          operation: 'validateConfigWithOptions',
+          configType,
+        });
+        throw error; // Re-throw to ensure function exits
+      } else {
+        // For unexpected errors during validation, return a failed result
+        return {
+          isValid: false,
+          errors: [
+            `Unexpected validation error: ${error instanceof Error ? error.message : String(error)}`,
+          ],
+          details: error,
+        };
       }
-
-      throw new ConfigLoaderError(
-        ErrorType.VALIDATION_ERROR,
-        'Configuration validation with custom options failed',
-        ErrorSeverity.HIGH,
-        { configType, options, error: error instanceof Error ? error.message : String(error) },
-        [
-          'Check configuration structure',
-          'Verify validation options are correct',
-          'Ensure field values are valid',
-        ]
-      );
     }
+  }
+
+  /**
+   * Gets the error handler instance
+   * @returns ErrorHandlerService instance
+   */
+  getErrorHandler(): ErrorHandlerService {
+    return this.errorHandler;
   }
 }
