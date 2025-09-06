@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist/cli",
+    "declaration": true,
+    "sourceMap": true,
+    "removeComments": false
+  },
+  "include": [
+    "src/cli/**/*",
+    "src/commands/**/*",
+    "src/services/**/*",
+    "src/types/**/*",
+    "src/utils/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "output",
+    "tests"
+  ]
+}
