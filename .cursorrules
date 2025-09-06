@@ -1,23 +1,27 @@
 # Cursor Instructions for Dockerfile Generator CLI
 
 ## Project Overview
+
 This is a pure TypeScript CLI tool for generating hardened, multi-architecture Docker images for web server setups with Nginx and PHP. The system automatically handles ARM64 and AMD64 architectures while maintaining platform-specific configurations for Alpine and Ubuntu.
 
 ## Core Development Principles
 
 ### 1. Pure TypeScript Implementation
+
 - **NO FRAMEWORKS**: Use only pure TypeScript and Node.js APIs
 - **Latest Versions**: Always use the latest stable versions of all dependencies
 - **Performance First**: Optimize for speed and efficiency in CI/CD environments
 - **Type Safety**: Maintain 100% TypeScript type coverage
 
 ### 2. Architecture Guidelines
+
 - **Flat Command Structure**: Use colon delimiters (e.g., `build:image`, `deploy:matrix`)
 - **Service-Oriented**: Organize code into focused services (Template Engine, Security Engine, etc.)
 - **Configuration Inheritance**: Implement hierarchical configuration with platform-specific overrides
 - **Multi-Architecture Support**: Generate both ARM64 and AMD64 variants automatically
 
 ### 3. Security by Default
+
 - **No Security Options**: Security features are always enabled, no way to disable
 - **Hardened Configurations**: Implement security best practices in all generated outputs
 - **Input Validation**: Validate and sanitize all inputs at multiple levels
@@ -48,6 +52,7 @@ output/            # Generated Dockerfiles (gitignored)
 ## Coding Standards
 
 ### 1. TypeScript Best Practices
+
 ```typescript
 // Always use strict TypeScript configuration
 // Use interfaces for object shapes, types for unions/primitives
@@ -59,7 +64,9 @@ interface BaseConfig {
 
 // Use generic types for reusable components
 class ConfigLoader<T extends BaseConfig> {
-  load(path: string): Promise<T> { /* ... */ }
+  load(path: string): Promise<T> {
+    /* ... */
+  }
 }
 
 // Prefer readonly properties where possible
@@ -68,9 +75,22 @@ interface SecurityConfig {
   readonly group: string;
   readonly nonRoot: boolean;
 }
+
+// Export statements - NEVER use file extensions
+export * from './service/php-fpm-config'; // ✅ Correct
+export * from './service/php-fpm-config.js'; // ❌ Wrong - no extensions
+export { PHPConfig } from './service/php-config'; // ✅ Correct
+export { PHPConfig } from './service/php-config.ts'; // ❌ Wrong - no extensions
+
+// Import statements - Use @/ alias when possible
+import { ErrorType, ErrorSeverity } from '@/types'; // ✅ Correct - use @/ alias
+import { BaseConfig } from '@/types/configs'; // ✅ Correct - use @/ alias
+import { PHPConfig } from './service/php-config'; // ✅ Correct - relative for same directory
+import { PHPConfig } from '../types/configs/service/php-config'; // ❌ Wrong - use @/ instead
 ```
 
 ### 2. Error Handling
+
 ```typescript
 // Use custom error classes with typed error types
 export class DockerfileGeneratorError extends Error {
@@ -95,13 +115,16 @@ throw new DockerfileGeneratorError(
 ```
 
 ### 3. Configuration Management
+
 ```typescript
 // Use Joi for schema validation
 const baseConfigSchema = Joi.object({
   php: Joi.object({
-    version: Joi.string().pattern(/^[78]\.[0-4]$/).required(),
-    extensions: Joi.array().items(Joi.string()).min(1).required()
-  }).required()
+    version: Joi.string()
+      .pattern(/^[78]\.[0-4]$/)
+      .required(),
+    extensions: Joi.array().items(Joi.string()).min(1).required(),
+  }).required(),
 });
 
 // Implement configuration inheritance
@@ -113,9 +136,10 @@ class ConfigManager {
 ```
 
 ### 4. Template System
+
 ```typescript
 // Use Handlebars with custom helpers
-Handlebars.registerHelper('eq', function(a, b) {
+Handlebars.registerHelper('eq', function (a, b) {
   return a === b;
 });
 
@@ -126,6 +150,7 @@ Handlebars.registerHelper('eq', function(a, b) {
 ## Command Implementation Guidelines
 
 ### 1. Command Structure
+
 ```typescript
 // All commands should follow this pattern
 export class BuildImageCommand implements Command {
@@ -133,16 +158,16 @@ export class BuildImageCommand implements Command {
     try {
       // 1. Validate arguments
       this.validateArgs(args);
-      
+
       // 2. Load configuration
       const config = await this.loadConfig(args);
-      
+
       // 3. Generate matrix
       const matrix = this.generateMatrix(config);
-      
+
       // 4. Process each variant
       await this.processVariants(matrix);
-      
+
       // 5. Success output
       this.outputSuccess(matrix);
     } catch (error) {
@@ -153,6 +178,7 @@ export class BuildImageCommand implements Command {
 ```
 
 ### 2. Argument Validation
+
 ```typescript
 // Always validate arguments before processing
 private validateArgs(args: BuildImageArgs): void {
@@ -170,12 +196,14 @@ private validateArgs(args: BuildImageArgs): void {
 ## Testing Requirements
 
 ### 1. Test Coverage
+
 - **Minimum 95% coverage** for all new code
 - **Unit tests** for all services and utilities
 - **Integration tests** for command workflows
 - **Test fixtures** for realistic test scenarios
 
 ### 2. Test Structure
+
 ```typescript
 // Always include descriptive comments explaining test purpose
 describe('ConfigManager', () => {
@@ -185,9 +213,9 @@ describe('ConfigManager', () => {
       // ensuring platform settings take precedence over base settings
       const base = createBaseConfig();
       const platform = createPlatformConfig();
-      
+
       const result = configManager.mergeConfigs(base, platform);
-      
+
       expect(result.php.version).toBe(platform.php.version);
       expect(result.security.user).toBe(base.security.user);
     });
@@ -196,6 +224,7 @@ describe('ConfigManager', () => {
 ```
 
 ### 3. Test Data
+
 ```typescript
 // Use realistic test fixtures
 const createTestConfig = (): BaseConfig => ({
@@ -206,22 +235,23 @@ const createTestConfig = (): BaseConfig => ({
       maxChildren: 50,
       startServers: 5,
       minSpareServers: 5,
-      maxSpareServers: 35
-    }
+      maxSpareServers: 35,
+    },
   },
   security: {
     user: 'www-data',
     group: 'www-data',
     nonRoot: true,
     readOnlyRoot: true,
-    capabilities: ['CHOWN', 'SETGID', 'SETUID']
-  }
+    capabilities: ['CHOWN', 'SETGID', 'SETUID'],
+  },
 });
 ```
 
 ## Performance Guidelines
 
 ### 1. Optimization Targets
+
 - **Startup time**: < 100ms
 - **Config loading**: < 50ms
 - **Template rendering**: < 100ms
@@ -230,16 +260,17 @@ const createTestConfig = (): BaseConfig => ({
 - **CPU usage**: < 10%
 
 ### 2. Performance Strategies
+
 ```typescript
 // Use lazy loading for configurations
 class ConfigLoader {
   private cache = new Map<string, BaseConfig>();
-  
+
   async load(path: string): Promise<BaseConfig> {
     if (this.cache.has(path)) {
       return this.cache.get(path)!;
     }
-    
+
     const config = await this.loadFromFile(path);
     this.cache.set(path, config);
     return config;
@@ -248,10 +279,10 @@ class ConfigLoader {
 
 // Implement parallel processing for matrix generation
 async processVariants(matrix: VariantMatrix): Promise<void> {
-  const promises = matrix.variants.map(variant => 
+  const promises = matrix.variants.map(variant =>
     this.processVariant(variant)
   );
-  
+
   await Promise.all(promises);
 }
 ```
@@ -259,6 +290,7 @@ async processVariants(matrix: VariantMatrix): Promise<void> {
 ## Security Implementation
 
 ### 1. Security Features
+
 - **Non-root user execution**
 - **Read-only root filesystem**
 - **Capability dropping**
@@ -267,6 +299,7 @@ async processVariants(matrix: VariantMatrix): Promise<void> {
 - **Template sandboxing**
 
 ### 2. Security Validation
+
 ```typescript
 // Always validate security configurations
 class SecurityValidator {
@@ -274,7 +307,7 @@ class SecurityValidator {
     if (!config.nonRoot) {
       throw new SecurityError('Non-root execution is mandatory');
     }
-    
+
     if (!config.readOnlyRoot) {
       throw new SecurityError('Read-only root is mandatory');
     }
@@ -285,6 +318,7 @@ class SecurityValidator {
 ## File Generation Guidelines
 
 ### 1. Output Structure
+
 ```
 output/
 ├── nginx-php-fpm-8.4-alpine/
@@ -298,6 +332,7 @@ output/
 ```
 
 ### 2. File Validation
+
 ```typescript
 // Validate generated files before writing
 class FileValidator {
@@ -305,7 +340,7 @@ class FileValidator {
     if (!content.includes('FROM')) {
       throw new ValidationError('Dockerfile missing FROM instruction');
     }
-    
+
     if (!content.includes('USER')) {
       throw new ValidationError('Dockerfile missing USER instruction');
     }
@@ -316,12 +351,14 @@ class FileValidator {
 ## Development Workflow
 
 ### 1. Before Writing Code
+
 - **Read the implementation plan** in `docs/implementation-plan.md`
 - **Review system architecture** in `docs/system-architecture.md`
 - **Understand the command structure** and flow
 - **Check existing implementations** for patterns
 
 ### 2. Scope Control When Using Implementation Plan
+
 - **ALWAYS LIMIT SCOPE** to the specific implementation plan point being worked on
 - **NO SCOPE CREEP**: Do not implement additional features beyond what's requested
 - **Single Point Focus**: If implementing Phase X.Y.Z, focus ONLY on that specific task
@@ -330,6 +367,7 @@ class FileValidator {
 - **Navigation Friendly**: Changes should be predictable and limited to prevent confusion
 
 ### 3. Code Review Checklist
+
 - [ ] Follows pure TypeScript principles (no frameworks)
 - [ ] Includes comprehensive error handling
 - [ ] Has proper TypeScript types and interfaces
@@ -339,6 +377,7 @@ class FileValidator {
 - [ ] Handles multi-architecture scenarios
 
 ### 4. Testing Before Commit
+
 ```bash
 # Run all tests
 pnpm test
@@ -360,17 +399,18 @@ pnpm type-check
 ## Common Patterns
 
 ### 1. Service Pattern
+
 ```typescript
 // All services should follow this pattern
 export abstract class BaseService {
   protected logger: Logger;
-  
+
   constructor(logger: Logger) {
     this.logger = logger;
   }
-  
+
   abstract execute(...args: any[]): Promise<any>;
-  
+
   protected handleError(error: Error): never {
     this.logger.error('Service execution failed', { error });
     throw error;
@@ -379,6 +419,7 @@ export abstract class BaseService {
 ```
 
 ### 2. Command Pattern
+
 ```typescript
 // All commands should implement this interface
 export interface Command<TArgs = any, TResult = void> {
@@ -389,21 +430,22 @@ export interface Command<TArgs = any, TResult = void> {
 ```
 
 ### 3. Configuration Pattern
+
 ```typescript
 // Use builder pattern for complex configurations
 export class ConfigBuilder {
   private config: Partial<BaseConfig> = {};
-  
+
   withPHP(version: string, extensions: string[]): this {
     this.config.php = { version, extensions };
     return this;
   }
-  
+
   withSecurity(user: string, group: string): this {
     this.config.security = { user, group, nonRoot: true, readOnlyRoot: true };
     return this;
   }
-  
+
   build(): BaseConfig {
     return this.validateAndBuild();
   }
@@ -413,12 +455,14 @@ export class ConfigBuilder {
 ## Troubleshooting
 
 ### 1. Common Issues
+
 - **Type errors**: Ensure all types are properly defined
 - **Performance issues**: Check for unnecessary operations in loops
 - **Security warnings**: Verify all security features are enabled
 - **Test failures**: Check test fixtures and mock data
 
 ### 2. Debug Mode
+
 ```typescript
 // Enable debug logging for troubleshooting
 const logger = new Logger({ level: 'debug' });
@@ -428,18 +472,21 @@ const service = new TemplateService(logger);
 ## Documentation Requirements
 
 ### 1. Code Documentation
+
 - **JSDoc comments** for all public methods
 - **Inline comments** for complex logic
 - **README updates** for new features
 - **API documentation** for public interfaces
 
 ### 2. User Documentation
+
 - **Command help text** for all commands
 - **Example configurations** in docs/
 - **Troubleshooting guides** for common issues
 - **Performance tuning** recommendations
 
 ## Remember
+
 - **Always prioritize security** - no shortcuts
 - **Performance matters** - optimize for CI/CD environments
 - **Type safety is mandatory** - no `any` types without justification
