@@ -4,7 +4,7 @@
  * This service handles Docker image building operations.
  */
 
-import type { BuildConfig } from './dockerfile-generator.js';
+import type { BuildConfig } from '@/services';
 
 export interface DockerBuildOptions {
   config: BuildConfig;

@@ -5,7 +5,7 @@
  * PHP versions and platforms.
  */
 
-import type { BuildConfig } from './dockerfile-generator.js';
+import type { BuildConfig } from '@/services';
 
 export class ConfigManager {
   async loadConfig(phpVersion: string, platform: 'alpine' | 'ubuntu'): Promise<BuildConfig> {

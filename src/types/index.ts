@@ -6,19 +6,19 @@
  */
 
 // Export all enums and utility functions
-export * from './enums/index.js';
+export * from './enums';
 
 // Export all configuration interfaces
-export * from './configs/index.js';
+export * from './configs';
 
 // Export all command argument interfaces
-export * from './commands/index.js';
+export * from './commands';
 
 // Export all error types and custom error classes
-export * from './errors/index.js';
+export * from './errors';
 
 // Export all template data interfaces
-export * from './templates/index.js';
+export * from './templates';
 
 // Export all Docker integration interfaces
-export * from './docker/index.js';
+export * from './docker';

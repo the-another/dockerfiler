@@ -4,7 +4,7 @@
  * This module exports all core business logic services.
  */
 
-export { DockerfileGeneratorService, type BuildConfig } from './dockerfile-generator.js';
-export { ConfigManager } from './config-manager.js';
-export { ValidationEngine } from './validation-engine.js';
-export { DockerBuildService, type DockerBuildOptions } from './docker-build.js';
+export { DockerfileGeneratorService, type BuildConfig } from './dockerfile-generator';
+export { ConfigManager } from './config-manager';
+export { ValidationEngine } from './validation-engine';
+export { DockerBuildService, type DockerBuildOptions } from './docker-build';

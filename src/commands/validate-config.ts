@@ -1,4 +1,4 @@
-import type { Command } from './index.js';
+import type { Command } from '@/commands';
 import { PHPVersion, Platform } from '@/types';
 import { PHPVersionTypeUtil, PlatformTypeUtil } from '@/utils';
 

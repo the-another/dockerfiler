@@ -1,4 +1,4 @@
-import type { Command } from './index.js';
+import type { Command } from '@/commands';
 import { DockerfileGeneratorService } from '@/services';
 import { ConfigManager } from '@/services';
 import { ValidationEngine } from '@/services';

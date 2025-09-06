@@ -4,7 +4,7 @@
  * This service validates configurations, generated files, and security settings.
  */
 
-import type { BuildConfig } from './dockerfile-generator.js';
+import type { BuildConfig } from '@/services';
 
 export class ValidationEngine {
   async validateConfig(config: BuildConfig): Promise<void> {
