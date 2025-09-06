@@ -8,7 +8,15 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { ErrorHandlerService } from '@/services/error-handler';
-import { BaseError } from '@/types/errors';
+import {
+  BaseError,
+  NetworkError,
+  BuildError,
+  DockerError,
+  RegistryError,
+  SecurityError,
+  FileWriteError,
+} from '@/types/errors';
 import { ErrorType, ErrorSeverity } from '@/types/errors';
 import { ErrorRecoveryStrategy } from '@/types/services/error-handler';
 
@@ -101,6 +109,7 @@ describe('ErrorHandlerService', () => {
       }
 
       const history = errorHandler.getErrorHistory();
+      // @ts-ignore
       expect(history[0].details).toMatchObject({ context });
     });
   });
@@ -411,10 +420,12 @@ describe('ErrorHandlerService', () => {
       }
 
       expect(mockConsoleError).toHaveBeenCalledWith(
-        expect.stringContaining('❌ Error [VALIDATION_ERROR]')
+        expect.stringContaining('❌ Configuration validation failed')
       );
       expect(mockConsoleError).toHaveBeenCalledWith(
-        expect.stringContaining('Message: Invalid config')
+        expect.stringContaining(
+          'Action Required: Please fix the validation errors in your configuration'
+        )
       );
       expect(mockConsoleError).toHaveBeenCalledWith(expect.stringContaining('Suggestions:'));
     });
@@ -460,16 +471,9 @@ describe('ErrorHandlerService', () => {
       // Test that error suggestions are included in user-friendly messages
       // ensuring helpful guidance is provided to users
       const service = new ErrorHandlerService({ enableUserFriendlyMessages: true });
-      const suggestions = ['Check file permissions', 'Verify file path', 'Create missing file'];
       const error = new (class extends BaseError {
         constructor() {
-          super(
-            ErrorType.FILE_WRITE_ERROR,
-            'Cannot write file',
-            ErrorSeverity.MEDIUM,
-            undefined,
-            suggestions
-          );
+          super(ErrorType.FILE_WRITE_ERROR, 'Cannot write file', ErrorSeverity.MEDIUM);
         }
       })();
 
@@ -480,9 +484,12 @@ describe('ErrorHandlerService', () => {
       }
 
       expect(mockConsoleError).toHaveBeenCalledWith(expect.stringContaining('Suggestions:'));
-      suggestions.forEach(suggestion => {
-        expect(mockConsoleError).toHaveBeenCalledWith(expect.stringContaining(suggestion));
-      });
+      expect(mockConsoleError).toHaveBeenCalledWith(
+        expect.stringContaining('Check available disk space')
+      );
+      expect(mockConsoleError).toHaveBeenCalledWith(
+        expect.stringContaining('Verify write permissions for the target directory')
+      );
     });
   });
 
@@ -645,16 +652,16 @@ describe('ErrorHandlerService', () => {
       }
 
       expect(mockConsoleError).toHaveBeenCalledWith(
-        expect.stringContaining('⚠️ Error [VALIDATION_ERROR]')
+        expect.stringContaining('⚠️ Configuration validation failed')
       );
       expect(mockConsoleError).toHaveBeenCalledWith(
-        expect.stringContaining('❌ Error [VALIDATION_ERROR]')
+        expect.stringContaining('❌ Configuration validation failed')
       );
       expect(mockConsoleError).toHaveBeenCalledWith(
-        expect.stringContaining('🚨 Error [VALIDATION_ERROR]')
+        expect.stringContaining('🚨 Configuration validation failed')
       );
       expect(mockConsoleError).toHaveBeenCalledWith(
-        expect.stringContaining('💥 Error [VALIDATION_ERROR]')
+        expect.stringContaining('💥 Configuration validation failed')
       );
     });
   });
@@ -664,7 +671,7 @@ describe('ErrorHandlerService', () => {
       it('should adjust classification based on HTTP status code', () => {
         // Test that HTTP status codes are properly analyzed for classification
         // ensuring server errors are marked as retryable and client errors are not
-        const error = new BaseError(
+        const error = new NetworkError(
           ErrorType.NETWORK_ERROR,
           'HTTP request failed',
           ErrorSeverity.MEDIUM,
@@ -682,7 +689,7 @@ describe('ErrorHandlerService', () => {
       it('should handle rate limiting status code with exponential backoff', () => {
         // Test that rate limiting (429) status code triggers exponential backoff
         // ensuring proper handling of rate limit scenarios
-        const error = new BaseError(
+        const error = new RegistryError(
           ErrorType.REGISTRY_ERROR,
           'HTTP request failed',
           ErrorSeverity.MEDIUM,
@@ -703,9 +710,14 @@ describe('ErrorHandlerService', () => {
       it('should mark client errors as non-retryable', () => {
         // Test that 4xx client errors are marked as non-retryable
         // ensuring proper classification of client-side issues
-        const error = new BaseError(ErrorType.NETWORK_ERROR, 'Bad request', ErrorSeverity.MEDIUM, {
-          statusCode: 400,
-        });
+        const error = new NetworkError(
+          ErrorType.NETWORK_ERROR,
+          'Bad request',
+          ErrorSeverity.MEDIUM,
+          {
+            statusCode: 400,
+          }
+        );
 
         const classification = errorHandler.classifyError(error);
 
@@ -717,7 +729,7 @@ describe('ErrorHandlerService', () => {
       it('should adjust classification based on error code', () => {
         // Test that system error codes are properly analyzed
         // ensuring network and file system errors are correctly classified
-        const networkError = new BaseError(
+        const networkError = new NetworkError(
           ErrorType.UNKNOWN_ERROR,
           'Connection failed',
           ErrorSeverity.MEDIUM,
@@ -734,7 +746,7 @@ describe('ErrorHandlerService', () => {
       it('should adjust classification based on file path', () => {
         // Test that file paths are analyzed for context
         // ensuring config and template files are properly classified
-        const configError = new BaseError(
+        const configError = new FileWriteError(
           ErrorType.FILE_WRITE_ERROR,
           'File write failed',
           ErrorSeverity.MEDIUM,
@@ -750,7 +762,7 @@ describe('ErrorHandlerService', () => {
       it('should adjust classification based on operation type', () => {
         // Test that operation types are analyzed for context
         // ensuring build, push, and manifest operations are properly classified
-        const buildError = new BaseError(
+        const buildError = new BuildError(
           ErrorType.UNKNOWN_ERROR,
           'Operation failed',
           ErrorSeverity.MEDIUM,
@@ -769,7 +781,7 @@ describe('ErrorHandlerService', () => {
       it('should detect network patterns in error messages', () => {
         // Test that network-related patterns are detected in error messages
         // ensuring proper classification of network connectivity issues
-        const error = new BaseError(
+        const error = new NetworkError(
           ErrorType.UNKNOWN_ERROR,
           'Connection timeout occurred',
           ErrorSeverity.MEDIUM
@@ -787,7 +799,7 @@ describe('ErrorHandlerService', () => {
       it('should detect Docker patterns in error messages', () => {
         // Test that Docker-related patterns are detected in error messages
         // ensuring proper classification of Docker daemon issues
-        const error = new BaseError(
+        const error = new DockerError(
           ErrorType.UNKNOWN_ERROR,
           'Docker daemon is not running',
           ErrorSeverity.MEDIUM
@@ -804,7 +816,7 @@ describe('ErrorHandlerService', () => {
       it('should detect registry patterns in error messages', () => {
         // Test that registry-related patterns are detected in error messages
         // ensuring proper classification of registry access issues
-        const error = new BaseError(
+        const error = new RegistryError(
           ErrorType.UNKNOWN_ERROR,
           'Unauthorized access to registry',
           ErrorSeverity.MEDIUM
@@ -824,7 +836,7 @@ describe('ErrorHandlerService', () => {
       it('should detect file system patterns in error messages', () => {
         // Test that file system patterns are detected in error messages
         // ensuring proper classification of disk space issues
-        const error = new BaseError(
+        const error = new FileWriteError(
           ErrorType.UNKNOWN_ERROR,
           'No space left on device',
           ErrorSeverity.MEDIUM
@@ -841,7 +853,7 @@ describe('ErrorHandlerService', () => {
       it('should detect security patterns in error messages', () => {
         // Test that security patterns are detected in error messages
         // ensuring proper classification of security issues
-        const error = new BaseError(
+        const error = new SecurityError(
           ErrorType.UNKNOWN_ERROR,
           'Security vulnerability detected',
           ErrorSeverity.MEDIUM
@@ -858,7 +870,7 @@ describe('ErrorHandlerService', () => {
       it('should detect configuration patterns in error messages', () => {
         // Test that configuration patterns are detected in error messages
         // ensuring proper classification of configuration issues
-        const error = new BaseError(
+        const error = new NetworkError(
           ErrorType.UNKNOWN_ERROR,
           'Invalid config file format',
           ErrorSeverity.MEDIUM
@@ -880,11 +892,11 @@ describe('ErrorHandlerService', () => {
 
         // Add multiple errors of the same type to history
         for (let i = 0; i < 3; i++) {
-          const error = new BaseError(errorType, `Network error ${i}`, ErrorSeverity.MEDIUM);
+          const error = new NetworkError(errorType, `Network error ${i}`, ErrorSeverity.MEDIUM);
           errorHandler['addToHistory'](error);
         }
 
-        const newError = new BaseError(errorType, 'Another network error', ErrorSeverity.MEDIUM);
+        const newError = new NetworkError(errorType, 'Another network error', ErrorSeverity.MEDIUM);
         const classification = errorHandler.classifyError(newError);
 
         expect(classification.severity).toBe(ErrorSeverity.HIGH);
@@ -898,11 +910,15 @@ describe('ErrorHandlerService', () => {
 
         // Add multiple errors of the same type to history
         for (let i = 0; i < 3; i++) {
-          const error = new BaseError(errorType, `Registry error ${i}`, ErrorSeverity.MEDIUM);
+          const error = new NetworkError(errorType, `Registry error ${i}`, ErrorSeverity.MEDIUM);
           errorHandler['addToHistory'](error);
         }
 
-        const newError = new BaseError(errorType, 'Another registry error', ErrorSeverity.MEDIUM);
+        const newError = new NetworkError(
+          errorType,
+          'Another registry error',
+          ErrorSeverity.MEDIUM
+        );
         const classification = errorHandler.classifyError(newError);
 
         expect(classification.maxRetries).toBeLessThan(5); // Should be reduced from default
@@ -921,11 +937,11 @@ describe('ErrorHandlerService', () => {
 
         // Add different error types to history
         errorTypes.forEach((type, index) => {
-          const error = new BaseError(type, `Error ${index}`, ErrorSeverity.MEDIUM);
+          const error = new NetworkError(type, `Error ${index}`, ErrorSeverity.MEDIUM);
           errorHandler['addToHistory'](error);
         });
 
-        const newError = new BaseError(
+        const newError = new FileWriteError(
           ErrorType.FILE_WRITE_ERROR,
           'File error',
           ErrorSeverity.MEDIUM
@@ -944,11 +960,11 @@ describe('ErrorHandlerService', () => {
 
         // Add only 2 different error types to history
         errorTypes.forEach((type, index) => {
-          const error = new BaseError(type, `Error ${index}`, ErrorSeverity.MEDIUM);
+          const error = new NetworkError(type, `Error ${index}`, ErrorSeverity.MEDIUM);
           errorHandler['addToHistory'](error);
         });
 
-        const newError = new BaseError(
+        const newError = new RegistryError(
           ErrorType.REGISTRY_ERROR,
           'Registry error',
           ErrorSeverity.MEDIUM
@@ -964,7 +980,7 @@ describe('ErrorHandlerService', () => {
       it('should increase severity based on message content', () => {
         // Test that severity is adjusted based on message content
         // ensuring critical keywords trigger higher severity
-        const error = new BaseError(
+        const error = new NetworkError(
           ErrorType.UNKNOWN_ERROR,
           'Critical system failure occurred',
           ErrorSeverity.MEDIUM
@@ -978,7 +994,7 @@ describe('ErrorHandlerService', () => {
       it('should decrease severity for warning messages', () => {
         // Test that warning messages get lower severity
         // ensuring proper classification of non-critical issues
-        const error = new BaseError(
+        const error = new NetworkError(
           ErrorType.UNKNOWN_ERROR,
           'Warning: deprecated feature used',
           ErrorSeverity.MEDIUM
@@ -992,7 +1008,7 @@ describe('ErrorHandlerService', () => {
       it('should maintain medium severity for standard error messages', () => {
         // Test that standard error messages maintain medium severity
         // ensuring proper baseline severity classification
-        const error = new BaseError(
+        const error = new NetworkError(
           ErrorType.UNKNOWN_ERROR,
           'An error occurred during processing',
           ErrorSeverity.MEDIUM
@@ -1008,7 +1024,11 @@ describe('ErrorHandlerService', () => {
       it('should ensure consistency between recoverable and retryable', () => {
         // Test that recoverable errors are automatically made retryable
         // ensuring logical consistency in classification
-        const error = new BaseError(ErrorType.NETWORK_ERROR, 'Network error', ErrorSeverity.MEDIUM);
+        const error = new NetworkError(
+          ErrorType.NETWORK_ERROR,
+          'Network error',
+          ErrorSeverity.MEDIUM
+        );
 
         const classification = errorHandler.classifyError(error);
 
@@ -1020,7 +1040,7 @@ describe('ErrorHandlerService', () => {
       it('should ensure retryable errors have appropriate retry settings', () => {
         // Test that retryable errors have proper retry configuration
         // ensuring all retryable errors can actually be retried
-        const error = new BaseError(
+        const error = new RegistryError(
           ErrorType.REGISTRY_ERROR,
           'Registry error',
           ErrorSeverity.MEDIUM
@@ -1037,7 +1057,7 @@ describe('ErrorHandlerService', () => {
       it('should validate recovery strategy consistency', () => {
         // Test that recovery strategy is consistent with retryable flag
         // ensuring proper recovery strategy assignment
-        const error = new BaseError(ErrorType.DOCKER_ERROR, 'Docker error', ErrorSeverity.MEDIUM);
+        const error = new DockerError(ErrorType.DOCKER_ERROR, 'Docker error', ErrorSeverity.MEDIUM);
 
         const classification = errorHandler.classifyError(error);
 
@@ -1070,9 +1090,9 @@ describe('ErrorHandlerService', () => {
         const errorType = ErrorType.NETWORK_ERROR;
 
         // Add errors to history
-        const error1 = new BaseError(errorType, 'Error 1', ErrorSeverity.MEDIUM);
-        const error2 = new BaseError(ErrorType.DOCKER_ERROR, 'Error 2', ErrorSeverity.MEDIUM);
-        const error3 = new BaseError(errorType, 'Error 3', ErrorSeverity.MEDIUM);
+        const error1 = new NetworkError(errorType, 'Error 1', ErrorSeverity.MEDIUM);
+        const error2 = new DockerError(ErrorType.DOCKER_ERROR, 'Error 2', ErrorSeverity.MEDIUM);
+        const error3 = new NetworkError(errorType, 'Error 3', ErrorSeverity.MEDIUM);
 
         errorHandler['addToHistory'](error1);
         errorHandler['addToHistory'](error2);
@@ -1095,7 +1115,7 @@ describe('ErrorHandlerService', () => {
 
         // Add errors to history
         errorTypes.forEach((type, index) => {
-          const error = new BaseError(type, `Error ${index}`, ErrorSeverity.MEDIUM);
+          const error = new NetworkError(type, `Error ${index}`, ErrorSeverity.MEDIUM);
           errorHandler['addToHistory'](error);
         });
 

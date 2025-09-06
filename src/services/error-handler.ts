@@ -9,6 +9,7 @@ import { BaseError } from '@/types/errors';
 import { ErrorType, ErrorSeverity } from '@/types/errors';
 import { ErrorRecoveryStrategy } from '@/types/services/error-handler';
 import type { ErrorHandlerOptions, ErrorClassification } from '@/types/services/error-handler';
+import { ErrorMessageService } from './error-message-service';
 
 /**
  * Error Handler Service
@@ -660,27 +661,25 @@ export class ErrorHandlerService {
    * @param classification - The error classification
    */
   private logUserFriendlyError(error: BaseError, classification: ErrorClassification): void {
-    const severityIcon = this.getSeverityIcon(classification.severity);
+    const userFriendlyMessage = ErrorMessageService.getMessageWithSeverity(error);
     const timestamp = error.timestamp.toISOString();
 
-    console.error(`\n${severityIcon} Error [${error.type}] (${timestamp})`);
-    console.error(`Message: ${error.message}`);
+    console.error(`\n${userFriendlyMessage}`);
+    console.error(`\nError Details:`);
+    console.error(`  Type: ${error.type}`);
+    console.error(`  Severity: ${classification.severity}`);
+    console.error(`  Timestamp: ${timestamp}`);
 
-    if (error.details) {
-      console.error(`Details: ${JSON.stringify(error.details, null, 2)}`);
+    if (error.code) {
+      console.error(`  Code: ${error.code}`);
     }
-
-    if (error.suggestions && error.suggestions.length > 0) {
-      console.error('\nSuggestions:');
-      error.suggestions.forEach((suggestion, index) => {
-        console.error(`  ${index + 1}. ${suggestion}`);
-      });
-    }
-
-    console.error(`\nAction: ${classification.userAction}`);
 
     if (classification.recoverable) {
-      console.error('Recovery: This error is recoverable and will be retried automatically.');
+      console.error(`\nRecovery: This error is recoverable and will be retried automatically.`);
+      if (classification.retryable) {
+        console.error(`  Max Retries: ${classification.maxRetries}`);
+        console.error(`  Retry Delay: ${classification.retryDelay}ms`);
+      }
     }
 
     console.error(''); // Empty line for readability
@@ -746,26 +745,6 @@ export class ErrorHandlerService {
    */
   private getErrorKey(error: BaseError): string {
     return `${error.type}:${error.message}:${error.timestamp?.getTime() ?? Date.now()}`;
-  }
-
-  /**
-   * Gets an icon for error severity
-   * @param severity - The error severity
-   * @returns Severity icon
-   */
-  private getSeverityIcon(severity: ErrorSeverity): string {
-    switch (severity) {
-      case ErrorSeverity.LOW:
-        return '⚠️';
-      case ErrorSeverity.MEDIUM:
-        return '❌';
-      case ErrorSeverity.HIGH:
-        return '🚨';
-      case ErrorSeverity.CRITICAL:
-        return '💥';
-      default:
-        return '❌';
-    }
   }
 
   /**

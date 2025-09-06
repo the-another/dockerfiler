@@ -72,13 +72,14 @@ export abstract class BaseError extends Error {
    * @returns Formatted error message
    */
   getUserMessage(): string {
-    let message = `${this.message}`;
+    let message = this.message;
 
     if (this.suggestions && this.suggestions.length > 0) {
-      message += '\n\nSuggestions:\n';
+      message += '\n\nSuggestions:';
       this.suggestions.forEach((suggestion, index) => {
-        message += `${index + 1}. ${suggestion}\n`;
+        message += `\n${index + 1}. ${suggestion}`;
       });
+      message += '\n';
     }
 
     return message;

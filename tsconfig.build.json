@@ -5,7 +5,13 @@
     "sourceMap": false,
     "declarationMap": false,
     "verbatimModuleSyntax": false,
-    "moduleResolution": "node"
+    "moduleResolution": "node",
+    "module": "CommonJS",
+    "target": "ES2022",
+    "baseUrl": "./src",
+    "paths": {
+      "@/*": ["*"]
+    }
   },
   "exclude": [
     "node_modules",
