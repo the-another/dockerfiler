@@ -18,6 +18,8 @@ export enum ErrorRecoveryStrategy {
   RETRY_WITH_BACKOFF = 'RETRY_WITH_BACKOFF',
   /** Retry with exponential backoff */
   RETRY_WITH_EXPONENTIAL_BACKOFF = 'RETRY_WITH_EXPONENTIAL_BACKOFF',
+  /** Manual intervention required */
+  MANUAL_INTERVENTION = 'MANUAL_INTERVENTION',
 }
 
 /**

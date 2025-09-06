@@ -21,8 +21,30 @@ export enum ErrorType {
   SECURITY_ERROR = 'SECURITY_ERROR',
   /** Docker operation failures */
   DOCKER_ERROR = 'DOCKER_ERROR',
+  /** Docker build failures */
+  DOCKER_BUILD_ERROR = 'DOCKER_BUILD_ERROR',
+  /** Docker daemon connection failures */
+  DOCKER_DAEMON_ERROR = 'DOCKER_DAEMON_ERROR',
+  /** Docker image pull failures */
+  DOCKER_PULL_ERROR = 'DOCKER_PULL_ERROR',
+  /** Docker image push failures */
+  DOCKER_PUSH_ERROR = 'DOCKER_PUSH_ERROR',
+  /** Docker multi-architecture build failures */
+  DOCKER_MULTIARCH_ERROR = 'DOCKER_MULTIARCH_ERROR',
+  /** Docker build cache failures */
+  DOCKER_CACHE_ERROR = 'DOCKER_CACHE_ERROR',
   /** Registry operation failures */
   REGISTRY_ERROR = 'REGISTRY_ERROR',
+  /** Registry authentication failures */
+  REGISTRY_AUTH_ERROR = 'REGISTRY_AUTH_ERROR',
+  /** Registry rate limiting failures */
+  REGISTRY_RATE_LIMIT_ERROR = 'REGISTRY_RATE_LIMIT_ERROR',
+  /** Registry network connectivity failures */
+  REGISTRY_NETWORK_ERROR = 'REGISTRY_NETWORK_ERROR',
+  /** Registry quota exceeded failures */
+  REGISTRY_QUOTA_ERROR = 'REGISTRY_QUOTA_ERROR',
+  /** Registry image not found failures */
+  REGISTRY_NOT_FOUND_ERROR = 'REGISTRY_NOT_FOUND_ERROR',
   /** Command argument validation failures */
   ARGUMENT_ERROR = 'ARGUMENT_ERROR',
   /** Network operation failures */

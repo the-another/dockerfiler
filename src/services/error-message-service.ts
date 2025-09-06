@@ -13,6 +13,12 @@ import type { BaseError } from '../types/errors';
  * Provides clear, actionable error messages for all error types
  */
 export class ErrorMessageService {
+  // Common suggestion messages to avoid duplication
+  private static readonly COMMON_SUGGESTIONS = {
+    CHECK_INTERNET_CONNECTION: 'Check your internet connection',
+    VERIFY_FIREWALL_SETTINGS: 'Verify firewall settings',
+  } as const;
+
   /**
    * Gets a user-friendly error message for any error type
    * @param error - The error to format
@@ -69,8 +75,41 @@ export class ErrorMessageService {
       case ErrorType.DOCKER_ERROR:
         return 'Docker operation failed';
 
+      case ErrorType.DOCKER_BUILD_ERROR:
+        return 'Docker build failed';
+
+      case ErrorType.DOCKER_DAEMON_ERROR:
+        return 'Docker daemon connection failed';
+
+      case ErrorType.DOCKER_PULL_ERROR:
+        return 'Docker image pull failed';
+
+      case ErrorType.DOCKER_PUSH_ERROR:
+        return 'Docker image push failed';
+
+      case ErrorType.DOCKER_MULTIARCH_ERROR:
+        return 'Docker multi-architecture build failed';
+
+      case ErrorType.DOCKER_CACHE_ERROR:
+        return 'Docker build cache operation failed';
+
       case ErrorType.REGISTRY_ERROR:
         return 'Docker registry operation failed';
+
+      case ErrorType.REGISTRY_AUTH_ERROR:
+        return 'Docker registry authentication failed';
+
+      case ErrorType.REGISTRY_RATE_LIMIT_ERROR:
+        return 'Docker registry rate limit exceeded';
+
+      case ErrorType.REGISTRY_NETWORK_ERROR:
+        return 'Docker registry network connection failed';
+
+      case ErrorType.REGISTRY_QUOTA_ERROR:
+        return 'Docker registry quota exceeded';
+
+      case ErrorType.REGISTRY_NOT_FOUND_ERROR:
+        return 'Docker registry image not found';
 
       case ErrorType.ARGUMENT_ERROR:
         return 'Invalid command arguments';
@@ -181,8 +220,41 @@ export class ErrorMessageService {
       case ErrorType.DOCKER_ERROR:
         return 'Please ensure Docker is running and accessible';
 
+      case ErrorType.DOCKER_BUILD_ERROR:
+        return 'Please check your Dockerfile and build context for issues';
+
+      case ErrorType.DOCKER_DAEMON_ERROR:
+        return 'Please ensure Docker daemon is running and accessible';
+
+      case ErrorType.DOCKER_PULL_ERROR:
+        return 'Please check your network connection and image availability';
+
+      case ErrorType.DOCKER_PUSH_ERROR:
+        return 'Please check your registry credentials and push permissions';
+
+      case ErrorType.DOCKER_MULTIARCH_ERROR:
+        return 'Please check your buildx setup and platform configurations';
+
+      case ErrorType.DOCKER_CACHE_ERROR:
+        return 'Please check your Docker cache configuration and disk space';
+
       case ErrorType.REGISTRY_ERROR:
         return 'Please check your registry credentials and network connection';
+
+      case ErrorType.REGISTRY_AUTH_ERROR:
+        return 'Please verify your registry credentials and authentication';
+
+      case ErrorType.REGISTRY_RATE_LIMIT_ERROR:
+        return 'Please wait before retrying or check your registry plan limits';
+
+      case ErrorType.REGISTRY_NETWORK_ERROR:
+        return 'Please check your network connection to the registry';
+
+      case ErrorType.REGISTRY_QUOTA_ERROR:
+        return 'Please check your registry storage quota and usage';
+
+      case ErrorType.REGISTRY_NOT_FOUND_ERROR:
+        return 'Please verify the image name and tag exist in the registry';
 
       case ErrorType.ARGUMENT_ERROR:
         return 'Please check your command arguments and options';
@@ -272,11 +344,77 @@ export class ErrorMessageService {
         'Verify Docker CLI is accessible',
         'Check Docker daemon logs for details',
       ],
+      [ErrorType.DOCKER_BUILD_ERROR]: [
+        'Check your Dockerfile syntax and instructions',
+        'Verify all required files are in the build context',
+        'Check for missing dependencies or base images',
+        'Review Docker build logs for specific errors',
+      ],
+      [ErrorType.DOCKER_DAEMON_ERROR]: [
+        'Start the Docker daemon service',
+        'Check Docker daemon configuration',
+        'Verify Docker socket permissions',
+        'Restart Docker service if needed',
+      ],
+      [ErrorType.DOCKER_PULL_ERROR]: [
+        ErrorMessageService.COMMON_SUGGESTIONS.CHECK_INTERNET_CONNECTION,
+        'Verify the image name and tag are correct',
+        'Check if the image exists in the registry',
+        'Try pulling the image manually to test',
+      ],
+      [ErrorType.DOCKER_PUSH_ERROR]: [
+        'Verify your registry credentials',
+        'Check if you have push permissions',
+        'Ensure the image is properly tagged',
+        'Check for registry connectivity issues',
+      ],
+      [ErrorType.DOCKER_MULTIARCH_ERROR]: [
+        'Install and configure Docker Buildx',
+        'Check your platform configurations',
+        'Verify emulation support is available',
+        'Check available disk space for multi-arch builds',
+      ],
+      [ErrorType.DOCKER_CACHE_ERROR]: [
+        'Check available disk space',
+        'Clear Docker cache if corrupted',
+        'Verify cache configuration settings',
+        'Check Docker daemon cache settings',
+      ],
       [ErrorType.REGISTRY_ERROR]: [
         'Verify registry credentials are correct',
         'Check network connectivity to the registry',
         'Ensure you have push/pull permissions',
         'Check for rate limiting or quota issues',
+      ],
+      [ErrorType.REGISTRY_AUTH_ERROR]: [
+        'Re-authenticate with the registry',
+        'Check your username and password/token',
+        'Verify your registry URL is correct',
+        'Check if your account is active',
+      ],
+      [ErrorType.REGISTRY_RATE_LIMIT_ERROR]: [
+        'Wait before retrying the operation',
+        'Check your registry plan limits',
+        'Consider upgrading your registry plan',
+        'Implement exponential backoff in your workflow',
+      ],
+      [ErrorType.REGISTRY_NETWORK_ERROR]: [
+        ErrorMessageService.COMMON_SUGGESTIONS.CHECK_INTERNET_CONNECTION,
+        'Verify firewall settings allow registry access',
+        'Check if the registry is accessible',
+        'Try accessing the registry from a different network',
+      ],
+      [ErrorType.REGISTRY_QUOTA_ERROR]: [
+        'Check your registry storage usage',
+        'Delete unused images to free up space',
+        'Upgrade your registry plan if needed',
+        'Contact registry support for quota increase',
+      ],
+      [ErrorType.REGISTRY_NOT_FOUND_ERROR]: [
+        'Verify the image name and tag are correct',
+        'Check if the image exists in the registry',
+        'Ensure you have access to the repository',
+        'Check for typos in the image reference',
       ],
       [ErrorType.ARGUMENT_ERROR]: [
         'Check command syntax and required options',
@@ -285,8 +423,8 @@ export class ErrorMessageService {
         'Check for typos in command arguments',
       ],
       [ErrorType.NETWORK_ERROR]: [
-        'Check your internet connection',
-        'Verify firewall settings',
+        ErrorMessageService.COMMON_SUGGESTIONS.CHECK_INTERNET_CONNECTION,
+        ErrorMessageService.COMMON_SUGGESTIONS.VERIFY_FIREWALL_SETTINGS,
         'Check proxy configuration if applicable',
         'Try again after a brief delay',
       ],

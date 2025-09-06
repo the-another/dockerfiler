@@ -164,10 +164,7 @@ export class ConfigValidator {
     configs: readonly unknown[],
     configType: ConfigType
   ): Promise<readonly ValidationResult<T>[]> {
-    const results = await Promise.all(
-      configs.map(config => this.validateConfig<T>(config, configType))
-    );
-    return results;
+    return Promise.all(configs.map(config => this.validateConfig<T>(config, configType)));
   }
 
   /**

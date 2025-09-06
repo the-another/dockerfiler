@@ -140,6 +140,56 @@ export class ErrorHandlerService {
         classification.userAction = 'Check your registry credentials and network connection.';
         break;
 
+      case ErrorType.REGISTRY_AUTH_ERROR:
+        classification.recoverable = true;
+        classification.retryable = true;
+        classification.recoveryStrategy = ErrorRecoveryStrategy.RETRY;
+        classification.maxRetries = Math.min(
+          3,
+          this.options.maxRetries ?? ErrorHandlerService.DEFAULT_MAX_RETRIES
+        );
+        classification.retryDelay = 2000;
+        classification.userAction = 'Check your registry credentials and authentication.';
+        break;
+
+      case ErrorType.REGISTRY_RATE_LIMIT_ERROR:
+        classification.recoverable = true;
+        classification.retryable = true;
+        classification.recoveryStrategy = ErrorRecoveryStrategy.RETRY_WITH_EXPONENTIAL_BACKOFF;
+        classification.maxRetries = Math.min(
+          3,
+          this.options.maxRetries ?? ErrorHandlerService.DEFAULT_MAX_RETRIES
+        );
+        classification.retryDelay = 5000;
+        classification.userAction = 'Wait before retrying due to rate limiting.';
+        break;
+
+      case ErrorType.REGISTRY_NETWORK_ERROR:
+        classification.recoverable = true;
+        classification.retryable = true;
+        classification.recoveryStrategy = ErrorRecoveryStrategy.RETRY;
+        classification.maxRetries = Math.min(
+          3,
+          this.options.maxRetries ?? ErrorHandlerService.DEFAULT_MAX_RETRIES
+        );
+        classification.retryDelay = 3000;
+        classification.userAction = 'Check your network connection to the registry.';
+        break;
+
+      case ErrorType.REGISTRY_QUOTA_ERROR:
+        classification.recoverable = false;
+        classification.retryable = false;
+        classification.recoveryStrategy = ErrorRecoveryStrategy.MANUAL_INTERVENTION;
+        classification.userAction = 'Free up registry storage space or upgrade your plan.';
+        break;
+
+      case ErrorType.REGISTRY_NOT_FOUND_ERROR:
+        classification.recoverable = true;
+        classification.retryable = false;
+        classification.recoveryStrategy = ErrorRecoveryStrategy.MANUAL_INTERVENTION;
+        classification.userAction = 'Verify the image name and tag exist in the registry.';
+        break;
+
       case ErrorType.DOCKER_ERROR:
         classification.recoverable = true;
         classification.retryable = true;
@@ -150,6 +200,78 @@ export class ErrorHandlerService {
         );
         classification.retryDelay = 3000;
         classification.userAction = 'Ensure Docker is running and accessible.';
+        break;
+
+      case ErrorType.DOCKER_BUILD_ERROR:
+        classification.recoverable = true;
+        classification.retryable = true;
+        classification.recoveryStrategy = ErrorRecoveryStrategy.RETRY;
+        classification.maxRetries = Math.min(
+          2,
+          this.options.maxRetries ?? ErrorHandlerService.DEFAULT_MAX_RETRIES
+        );
+        classification.retryDelay = 3000;
+        classification.userAction = 'Check your Dockerfile and build context for issues.';
+        break;
+
+      case ErrorType.DOCKER_DAEMON_ERROR:
+        classification.recoverable = true;
+        classification.retryable = true;
+        classification.recoveryStrategy = ErrorRecoveryStrategy.RETRY;
+        classification.maxRetries = Math.min(
+          3,
+          this.options.maxRetries ?? ErrorHandlerService.DEFAULT_MAX_RETRIES
+        );
+        classification.retryDelay = 2000;
+        classification.userAction = 'Ensure Docker daemon is running and accessible.';
+        break;
+
+      case ErrorType.DOCKER_PULL_ERROR:
+        classification.recoverable = true;
+        classification.retryable = true;
+        classification.recoveryStrategy = ErrorRecoveryStrategy.RETRY;
+        classification.maxRetries = Math.min(
+          3,
+          this.options.maxRetries ?? ErrorHandlerService.DEFAULT_MAX_RETRIES
+        );
+        classification.retryDelay = 2000;
+        classification.userAction = 'Check image availability and network connection.';
+        break;
+
+      case ErrorType.DOCKER_PUSH_ERROR:
+        classification.recoverable = true;
+        classification.retryable = true;
+        classification.recoveryStrategy = ErrorRecoveryStrategy.RETRY;
+        classification.maxRetries = Math.min(
+          3,
+          this.options.maxRetries ?? ErrorHandlerService.DEFAULT_MAX_RETRIES
+        );
+        classification.retryDelay = 2000;
+        classification.userAction = 'Check registry credentials and push permissions.';
+        break;
+
+      case ErrorType.DOCKER_MULTIARCH_ERROR:
+        classification.recoverable = true;
+        classification.retryable = true;
+        classification.recoveryStrategy = ErrorRecoveryStrategy.RETRY;
+        classification.maxRetries = Math.min(
+          2,
+          this.options.maxRetries ?? ErrorHandlerService.DEFAULT_MAX_RETRIES
+        );
+        classification.retryDelay = 5000;
+        classification.userAction = 'Check your buildx setup and platform configurations.';
+        break;
+
+      case ErrorType.DOCKER_CACHE_ERROR:
+        classification.recoverable = true;
+        classification.retryable = true;
+        classification.recoveryStrategy = ErrorRecoveryStrategy.RETRY;
+        classification.maxRetries = Math.min(
+          2,
+          this.options.maxRetries ?? ErrorHandlerService.DEFAULT_MAX_RETRIES
+        );
+        classification.retryDelay = 1000;
+        classification.userAction = 'Check Docker cache configuration and disk space.';
         break;
 
       case ErrorType.CONFIG_LOAD_ERROR:
@@ -299,62 +421,314 @@ export class ErrorHandlerService {
   ): void {
     const message = error.message.toLowerCase();
 
-    // Network-related patterns
-    if (this.matchesPattern(message, ['timeout', 'connection refused', 'network unreachable'])) {
-      classification.type = ErrorType.NETWORK_ERROR;
-      classification.recoverable = true;
-      classification.retryable = true;
-      classification.recoveryStrategy = ErrorRecoveryStrategy.RETRY_WITH_BACKOFF;
-      classification.retryDelay = 3000;
-      classification.userAction =
-        'Network connectivity issue detected. Check your connection and try again.';
+    // Skip pattern matching if error already has a specific type
+    if (this.isSpecificErrorType(error.type)) {
+      return;
     }
 
-    // Docker-related patterns
+    // Try registry-specific patterns first
+    if (this.tryRegistryPatterns(message, classification)) {
+      return;
+    }
+
+    // Try Docker-specific patterns
+    if (this.tryDockerPatterns(message, classification)) {
+      return;
+    }
+
+    // Try network patterns
+    if (this.tryNetworkPatterns(message, classification)) {
+      return;
+    }
+
+    // Try other patterns
+    this.tryOtherPatterns(message, classification);
+  }
+
+  /**
+   * Tries to match registry-specific patterns
+   * @param message - Error message in lowercase
+   * @param classification - Classification to update
+   * @returns True if a pattern was matched
+   */
+  private tryRegistryPatterns(message: string, classification: ErrorClassification): boolean {
+    // Registry quota patterns (most specific)
+    if (
+      this.matchesPattern(message, ['storage full', 'repository full']) ||
+      (this.matchesPattern(message, ['quota exceeded']) &&
+        this.matchesPattern(message, ['registry']))
+    ) {
+      this.setRegistryQuotaClassification(classification);
+      return true;
+    }
+
+    // Registry not found patterns
+    if (
+      this.matchesPattern(message, ['repository not found', 'tag not found', 'manifest not found'])
+    ) {
+      this.setRegistryNotFoundClassification(classification);
+      return true;
+    }
+
+    // Registry rate limit patterns
+    if (
+      this.matchesPattern(message, ['rate limit exceeded', 'too many requests']) ||
+      (this.matchesPattern(message, ['rate limit']) && this.matchesPattern(message, ['registry']))
+    ) {
+      this.setRegistryRateLimitClassification(classification);
+      return true;
+    }
+
+    // Registry authentication patterns
+    if (this.matchesPattern(message, ['unauthorized', 'authentication failed', 'login failed'])) {
+      this.setRegistryAuthClassification(classification);
+      return true;
+    }
+
+    // Registry network patterns
+    if (
+      this.matchesPattern(message, ['connection refused', 'timeout', 'network unreachable']) &&
+      this.matchesPattern(message, ['registry'])
+    ) {
+      this.setRegistryNetworkClassification(classification);
+      return true;
+    }
+
+    // General registry patterns (fallback)
+    if (this.matchesPattern(message, ['registry', 'forbidden', 'access denied'])) {
+      this.setGeneralRegistryClassification(classification);
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Tries to match Docker-specific patterns
+   * @param message - Error message in lowercase
+   * @param classification - Classification to update
+   * @returns True if a pattern was matched
+   */
+  private tryDockerPatterns(message: string, classification: ErrorClassification): boolean {
+    // Docker pull patterns
+    if (
+      this.matchesPattern(message, ['pull access denied']) ||
+      (this.matchesPattern(message, ['pull failed']) && !this.matchesPattern(message, ['push']))
+    ) {
+      this.setDockerPullClassification(classification);
+      return true;
+    }
+
+    // Docker push patterns
+    if (
+      this.matchesPattern(message, ['push access denied', 'push error']) ||
+      (this.matchesPattern(message, ['push failed']) && !this.matchesPattern(message, ['pull']))
+    ) {
+      this.setDockerPushClassification(classification);
+      return true;
+    }
+
+    // Docker multi-arch patterns
+    if (this.matchesPattern(message, ['buildx', 'multi-arch', 'platform emulation'])) {
+      this.setDockerMultiArchClassification(classification);
+      return true;
+    }
+
+    // Docker build patterns
+    if (
+      this.matchesPattern(message, ['build failed', 'dockerfile', 'build context', 'build error'])
+    ) {
+      this.setDockerBuildClassification(classification);
+      return true;
+    }
+
+    // Docker cache patterns
+    if (this.matchesPattern(message, ['cache', 'layer cache', 'build cache'])) {
+      this.setDockerCacheClassification(classification);
+      return true;
+    }
+
+    // Docker daemon patterns
     if (
       this.matchesPattern(message, ['docker daemon', 'docker not running', 'permission denied'])
     ) {
-      classification.type = ErrorType.DOCKER_ERROR;
-      classification.recoverable = true;
-      classification.retryable = true;
-      classification.recoveryStrategy = ErrorRecoveryStrategy.RETRY;
-      classification.userAction =
-        'Docker daemon issue detected. Ensure Docker is running and accessible.';
+      this.setDockerDaemonClassification(classification);
+      return true;
     }
 
-    // Registry-related patterns
-    if (this.matchesPattern(message, ['unauthorized', 'forbidden', 'rate limit', 'registry'])) {
-      classification.type = ErrorType.REGISTRY_ERROR;
-      classification.recoverable = true;
-      classification.retryable = true;
-      classification.recoveryStrategy = ErrorRecoveryStrategy.RETRY_WITH_EXPONENTIAL_BACKOFF;
-      classification.userAction =
-        'Registry access issue detected. Check credentials and rate limits.';
-    }
+    return false;
+  }
 
+  /**
+   * Tries to match network patterns
+   * @param message - Error message in lowercase
+   * @param classification - Classification to update
+   * @returns True if a pattern was matched
+   */
+  private tryNetworkPatterns(message: string, classification: ErrorClassification): boolean {
+    if (this.matchesPattern(message, ['timeout', 'connection refused', 'network unreachable'])) {
+      this.setNetworkClassification(classification);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Tries to match other patterns
+   * @param message - Error message in lowercase
+   * @param classification - Classification to update
+   */
+  private tryOtherPatterns(message: string, classification: ErrorClassification): void {
     // File system patterns
     if (this.matchesPattern(message, ['no space left', 'disk full', 'quota exceeded'])) {
-      classification.type = ErrorType.FILE_WRITE_ERROR;
-      classification.severity = ErrorSeverity.HIGH;
-      classification.recoverable = false;
-      classification.userAction = 'Disk space issue detected. Free up disk space and try again.';
+      this.setFileSystemClassification(classification);
     }
 
     // Security patterns
     if (this.matchesPattern(message, ['vulnerability', 'security', 'insecure', 'malicious'])) {
-      classification.type = ErrorType.SECURITY_ERROR;
-      classification.severity = ErrorSeverity.HIGH;
-      classification.recoverable = false;
-      classification.userAction =
-        'Security issue detected. Address security concerns before proceeding.';
+      this.setSecurityClassification(classification);
     }
 
     // Configuration patterns
     if (this.matchesPattern(message, ['invalid config', 'missing required', 'syntax error'])) {
-      classification.type = ErrorType.CONFIG_LOAD_ERROR;
-      classification.recoverable = false;
-      classification.userAction = 'Configuration issue detected. Check your configuration file.';
+      this.setConfigurationClassification(classification);
     }
+  }
+
+  // Classification setter methods
+  private setRegistryQuotaClassification(classification: ErrorClassification): void {
+    classification.type = ErrorType.REGISTRY_QUOTA_ERROR;
+    classification.recoverable = false;
+    classification.retryable = false;
+    classification.recoveryStrategy = ErrorRecoveryStrategy.MANUAL_INTERVENTION;
+    classification.userAction =
+      'Registry quota issue detected. Free up storage space or upgrade plan.';
+  }
+
+  private setRegistryNotFoundClassification(classification: ErrorClassification): void {
+    classification.type = ErrorType.REGISTRY_NOT_FOUND_ERROR;
+    classification.recoverable = true;
+    classification.retryable = false;
+    classification.recoveryStrategy = ErrorRecoveryStrategy.MANUAL_INTERVENTION;
+    classification.userAction = 'Registry image not found. Verify the image name and tag.';
+  }
+
+  private setRegistryRateLimitClassification(classification: ErrorClassification): void {
+    classification.type = ErrorType.REGISTRY_RATE_LIMIT_ERROR;
+    classification.recoverable = true;
+    classification.retryable = true;
+    classification.recoveryStrategy = ErrorRecoveryStrategy.RETRY_WITH_EXPONENTIAL_BACKOFF;
+    classification.userAction = 'Registry rate limit issue detected. Wait before retrying.';
+  }
+
+  private setRegistryAuthClassification(classification: ErrorClassification): void {
+    classification.type = ErrorType.REGISTRY_AUTH_ERROR;
+    classification.recoverable = true;
+    classification.retryable = true;
+    classification.recoveryStrategy = ErrorRecoveryStrategy.RETRY;
+    classification.userAction = 'Registry authentication issue detected. Check your credentials.';
+  }
+
+  private setRegistryNetworkClassification(classification: ErrorClassification): void {
+    classification.type = ErrorType.REGISTRY_NETWORK_ERROR;
+    classification.recoverable = true;
+    classification.retryable = true;
+    classification.recoveryStrategy = ErrorRecoveryStrategy.RETRY;
+    classification.userAction = 'Registry network issue detected. Check your network connection.';
+  }
+
+  private setGeneralRegistryClassification(classification: ErrorClassification): void {
+    classification.type = ErrorType.REGISTRY_ERROR;
+    classification.recoverable = true;
+    classification.retryable = true;
+    classification.recoveryStrategy = ErrorRecoveryStrategy.RETRY_WITH_EXPONENTIAL_BACKOFF;
+    classification.userAction =
+      'Registry access issue detected. Check credentials and permissions.';
+  }
+
+  private setDockerPullClassification(classification: ErrorClassification): void {
+    classification.type = ErrorType.DOCKER_PULL_ERROR;
+    classification.recoverable = true;
+    classification.retryable = true;
+    classification.recoveryStrategy = ErrorRecoveryStrategy.RETRY;
+    classification.userAction =
+      'Docker pull issue detected. Check image availability and network connection.';
+  }
+
+  private setDockerPushClassification(classification: ErrorClassification): void {
+    classification.type = ErrorType.DOCKER_PUSH_ERROR;
+    classification.recoverable = true;
+    classification.retryable = true;
+    classification.recoveryStrategy = ErrorRecoveryStrategy.RETRY;
+    classification.userAction =
+      'Docker push issue detected. Check registry credentials and permissions.';
+  }
+
+  private setDockerMultiArchClassification(classification: ErrorClassification): void {
+    classification.type = ErrorType.DOCKER_MULTIARCH_ERROR;
+    classification.recoverable = true;
+    classification.retryable = true;
+    classification.recoveryStrategy = ErrorRecoveryStrategy.RETRY;
+    classification.userAction =
+      'Docker multi-architecture build issue detected. Check buildx configuration.';
+  }
+
+  private setDockerBuildClassification(classification: ErrorClassification): void {
+    classification.type = ErrorType.DOCKER_BUILD_ERROR;
+    classification.recoverable = true;
+    classification.retryable = true;
+    classification.recoveryStrategy = ErrorRecoveryStrategy.RETRY;
+    classification.userAction =
+      'Docker build issue detected. Check your Dockerfile and build context.';
+  }
+
+  private setDockerCacheClassification(classification: ErrorClassification): void {
+    classification.type = ErrorType.DOCKER_CACHE_ERROR;
+    classification.recoverable = true;
+    classification.retryable = true;
+    classification.recoveryStrategy = ErrorRecoveryStrategy.RETRY;
+    classification.userAction =
+      'Docker cache issue detected. Check cache configuration and disk space.';
+  }
+
+  private setDockerDaemonClassification(classification: ErrorClassification): void {
+    classification.type = ErrorType.DOCKER_DAEMON_ERROR;
+    classification.recoverable = true;
+    classification.retryable = true;
+    classification.recoveryStrategy = ErrorRecoveryStrategy.RETRY;
+    classification.userAction =
+      'Docker daemon issue detected. Ensure Docker is running and accessible.';
+  }
+
+  private setNetworkClassification(classification: ErrorClassification): void {
+    classification.type = ErrorType.NETWORK_ERROR;
+    classification.recoverable = true;
+    classification.retryable = true;
+    classification.recoveryStrategy = ErrorRecoveryStrategy.RETRY_WITH_BACKOFF;
+    classification.retryDelay = 3000;
+    classification.userAction =
+      'Network connectivity issue detected. Check your connection and try again.';
+  }
+
+  private setFileSystemClassification(classification: ErrorClassification): void {
+    classification.type = ErrorType.FILE_WRITE_ERROR;
+    classification.severity = ErrorSeverity.HIGH;
+    classification.recoverable = false;
+    classification.userAction = 'Disk space issue detected. Free up disk space and try again.';
+  }
+
+  private setSecurityClassification(classification: ErrorClassification): void {
+    classification.type = ErrorType.SECURITY_ERROR;
+    classification.severity = ErrorSeverity.HIGH;
+    classification.recoverable = false;
+    classification.userAction =
+      'Security issue detected. Address security concerns before proceeding.';
+  }
+
+  private setConfigurationClassification(classification: ErrorClassification): void {
+    classification.type = ErrorType.CONFIG_LOAD_ERROR;
+    classification.recoverable = false;
+    classification.userAction = 'Configuration issue detected. Check your configuration file.';
   }
 
   /**
@@ -436,6 +810,28 @@ export class ErrorHandlerService {
    */
   private matchesPattern(message: string, patterns: string[]): boolean {
     return patterns.some(pattern => message.includes(pattern));
+  }
+
+  /**
+   * Checks if an error type is specific (not a general type)
+   * @param errorType - The error type to check
+   * @returns True if the error type is specific
+   */
+  private isSpecificErrorType(errorType: ErrorType): boolean {
+    const specificTypes = [
+      ErrorType.DOCKER_BUILD_ERROR,
+      ErrorType.DOCKER_DAEMON_ERROR,
+      ErrorType.DOCKER_PULL_ERROR,
+      ErrorType.DOCKER_PUSH_ERROR,
+      ErrorType.DOCKER_MULTIARCH_ERROR,
+      ErrorType.DOCKER_CACHE_ERROR,
+      ErrorType.REGISTRY_AUTH_ERROR,
+      ErrorType.REGISTRY_RATE_LIMIT_ERROR,
+      ErrorType.REGISTRY_NETWORK_ERROR,
+      ErrorType.REGISTRY_QUOTA_ERROR,
+      ErrorType.REGISTRY_NOT_FOUND_ERROR,
+    ];
+    return specificTypes.includes(errorType);
   }
 
   /**
