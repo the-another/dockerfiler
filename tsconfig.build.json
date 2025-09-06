@@ -3,7 +3,9 @@
   "compilerOptions": {
     "removeComments": true,
     "sourceMap": false,
-    "declarationMap": false
+    "declarationMap": false,
+    "verbatimModuleSyntax": false,
+    "moduleResolution": "node"
   },
   "exclude": [
     "node_modules",
