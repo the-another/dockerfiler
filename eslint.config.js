@@ -3,6 +3,7 @@ import tseslint from '@typescript-eslint/eslint-plugin';
 import tsparser from '@typescript-eslint/parser';
 import prettier from 'eslint-plugin-prettier';
 import prettierConfig from 'eslint-config-prettier';
+import sonarjs from 'eslint-plugin-sonarjs';
 
 export default [
   // Base JavaScript configuration
@@ -47,6 +48,7 @@ export default [
     plugins: {
       '@typescript-eslint': tseslint,
       prettier: prettier,
+      sonarjs: sonarjs,
     },
     rules: {
       // Prettier integration
@@ -66,6 +68,20 @@ export default [
       // ESM specific rules
       'no-undef': 'off', // TypeScript handles this
       'no-redeclare': 'off', // TypeScript handles this
+
+      // SonarJS rules
+      'sonarjs/cognitive-complexity': ['error', 15], // Max complexity of 15
+      'sonarjs/no-collapsible-if': 'error',
+      'sonarjs/no-duplicate-string': ['error', { threshold: 3 }],
+      'sonarjs/no-duplicated-branches': 'error',
+      'sonarjs/no-identical-expressions': 'error',
+      'sonarjs/no-redundant-boolean': 'error',
+      'sonarjs/no-small-switch': 'error',
+      'sonarjs/no-unused-collection': 'error',
+      'sonarjs/no-use-of-empty-return-value': 'error',
+      'sonarjs/prefer-immediate-return': 'error',
+      'sonarjs/prefer-single-boolean-return': 'error',
+      'sonarjs/prefer-while': 'error',
     },
   },
 
@@ -104,6 +120,7 @@ export default [
     plugins: {
       '@typescript-eslint': tseslint,
       prettier: prettier,
+      sonarjs: sonarjs,
     },
     rules: {
       // Prettier integration
@@ -123,6 +140,20 @@ export default [
       // ESM specific rules
       'no-undef': 'off', // TypeScript handles this
       'no-redeclare': 'off', // TypeScript handles this
+
+      // SonarJS rules (relaxed for tests)
+      'sonarjs/cognitive-complexity': ['warn', 20], // More lenient for tests
+      'sonarjs/no-collapsible-if': 'warn',
+      'sonarjs/no-duplicate-string': ['warn', { threshold: 5 }], // More lenient for tests
+      'sonarjs/no-duplicated-branches': 'warn',
+      'sonarjs/no-identical-expressions': 'warn',
+      'sonarjs/no-redundant-boolean': 'warn',
+      'sonarjs/no-small-switch': 'warn',
+      'sonarjs/no-unused-collection': 'warn',
+      'sonarjs/no-use-of-empty-return-value': 'warn',
+      'sonarjs/prefer-immediate-return': 'warn',
+      'sonarjs/prefer-single-boolean-return': 'warn',
+      'sonarjs/prefer-while': 'warn',
     },
   },
 
