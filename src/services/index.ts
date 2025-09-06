@@ -6,5 +6,7 @@
 
 export { DockerfileGeneratorService, type BuildConfig } from './dockerfile-generator';
 export { ConfigManager } from './config-manager';
+export { ConfigLoader, type ConfigLoaderOptions, type ConfigFormat } from './config-loader';
+export { ConfigValidator, type ValidationResult, type ConfigType } from './config-validator';
 export { ValidationEngine } from './validation-engine';
 export { DockerBuildService, type DockerBuildOptions } from './docker-build';
