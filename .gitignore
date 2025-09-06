@@ -10,6 +10,10 @@ build/
 # Generated files
 output/
 
+# Documentation
+docs/
+*.md
+
 # Environment variables
 .env
 .env.local
