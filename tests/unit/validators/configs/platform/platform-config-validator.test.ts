@@ -84,7 +84,7 @@ describe('Platform Configuration Validator', () => {
         packageManager: {
           useCache: true,
           cleanCache: true,
-          repositories: ['http://dl-cdn.alpinelinux.org/alpine/edge/main'],
+          repositories: ['https://dl-cdn.alpinelinux.org/alpine/edge/main'],
         },
         optimizations: {
           security: true,
@@ -132,7 +132,7 @@ describe('Platform Configuration Validator', () => {
           updateLists: true,
           upgrade: true,
           cleanCache: true,
-          repositories: ['http://archive.ubuntu.com/ubuntu/'],
+          repositories: ['https://archive.ubuntu.com/ubuntu/'],
         },
         optimizations: {
           security: true,
@@ -191,9 +191,14 @@ describe('Platform Configuration Validator', () => {
     it('should require packageManager configuration', () => {
       // Test requires packageManager configuration in platformSpecific
       const config = createValidAlpineConfig();
-      delete config.platformSpecific.packageManager;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { packageManager, ...platformSpecificWithoutPackageManager } = config.platformSpecific;
+      const configWithoutPackageManager = {
+        ...config,
+        platformSpecific: platformSpecificWithoutPackageManager,
+      };
 
-      const result = platformConfigSchema.validate(config);
+      const result = platformConfigSchema.validate(configWithoutPackageManager);
 
       expect(result.error).toBeDefined();
       expect(result.error!.message).toContain(
@@ -204,9 +209,14 @@ describe('Platform Configuration Validator', () => {
     it('should require optimizations configuration', () => {
       // Test requires optimizations configuration in platformSpecific
       const config = createValidAlpineConfig();
-      delete config.platformSpecific.optimizations;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { optimizations, ...platformSpecificWithoutOptimizations } = config.platformSpecific;
+      const configWithoutOptimizations = {
+        ...config,
+        platformSpecific: platformSpecificWithoutOptimizations,
+      };
 
-      const result = platformConfigSchema.validate(config);
+      const result = platformConfigSchema.validate(configWithoutOptimizations);
 
       expect(result.error).toBeDefined();
       expect(result.error!.message).toContain(
@@ -217,9 +227,15 @@ describe('Platform Configuration Validator', () => {
     it('should require cleanupCommands', () => {
       // Test requires cleanupCommands in platformSpecific
       const config = createValidAlpineConfig();
-      delete config.platformSpecific.cleanupCommands;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { cleanupCommands, ...platformSpecificWithoutCleanupCommands } =
+        config.platformSpecific;
+      const configWithoutCleanupCommands = {
+        ...config,
+        platformSpecific: platformSpecificWithoutCleanupCommands,
+      };
 
-      const result = platformConfigSchema.validate(config);
+      const result = platformConfigSchema.validate(configWithoutCleanupCommands);
 
       expect(result.error).toBeDefined();
       expect(result.error!.message).toContain(
@@ -284,7 +300,7 @@ describe('Platform Configuration Validator', () => {
     });
 
     it('should reject cleanup commands that exceed maximum length', () => {
-      // Test rejects cleanup commands that exceed 200 character limit
+      // Test rejects cleanup commands that exceed 200-character limit
       const config = {
         ...createValidAlpineConfig(),
         platformSpecific: {
@@ -310,8 +326,8 @@ describe('Platform Configuration Validator', () => {
           packageManager: {
             ...createValidAlpineConfig().platformSpecific.packageManager,
             repositories: [
-              'http://dl-cdn.alpinelinux.org/alpine/edge/main',
-              'http://dl-cdn.alpinelinux.org/alpine/edge/community',
+              'https://dl-cdn.alpinelinux.org/alpine/edge/main',
+              'https://dl-cdn.alpinelinux.org/alpine/edge/community',
             ],
           },
         },
@@ -377,7 +393,7 @@ describe('Platform Configuration Validator', () => {
           packageManager: {
             useCache: true,
             cleanCache: true,
-            // repositories is undefined
+            // repositories are undefined
           },
         },
       };
