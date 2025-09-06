@@ -24,14 +24,12 @@ This document outlines the step-by-step implementation plan for the Dockerfile G
 - [x] Configure Node.js 24+ environment
 - [x] Set up TypeScript 5.4+
 - [x] Configure path aliases (@/ for src)
-- [x] Set up hot reloading with tsx
-- [x] Configure incremental compilation
 
 #### 1.3 Project Structure
 
 ├── src/
 │ ├── cli/ # CLI entry point and argument parsing
-│ ├── commands/ # Command implementations
+│ ├── commands/ # Command implementations (build:, deploy:, test:, validate:)
 │ ├── services/ # Core business logic services
 │ ├── configs/ # Configuration files and interfaces
 │ ├── templates/ # Handlebars templates
@@ -55,6 +53,7 @@ This document outlines the step-by-step implementation plan for the Dockerfile G
 - [ ] Define command argument interfaces
 - [ ] Create error type definitions
 - [ ] Define template data interfaces
+- [ ] Define Docker integration interfaces
 
 #### 2.2 Configuration Management
 - [ ] Implement configuration loader service
@@ -62,6 +61,7 @@ This document outlines the step-by-step implementation plan for the Dockerfile G
 - [ ] Implement configuration validation with Joi
 - [ ] Create configuration merger utility
 - [ ] Implement configuration caching
+- [ ] Create PHP version and platform-specific configuration files
 
 #### 2.3 Error Handling System
 - [ ] Implement custom error classes
@@ -69,6 +69,7 @@ This document outlines the step-by-step implementation plan for the Dockerfile G
 - [ ] Implement error classification logic
 - [ ] Create user-friendly error messages
 - [ ] Implement error recovery strategies
+- [ ] Add Docker and registry error types
 
 #### 2.4 Logging & Monitoring
 - [ ] Implement structured logging system
@@ -77,55 +78,56 @@ This document outlines the step-by-step implementation plan for the Dockerfile G
 - [ ] Create metrics collection
 - [ ] Set up log rotation
 
-### Phase 3: Template Engine
+### Phase 3: Dockerfile Generation Engine
 **Duration**: 2-3 days
-**Goal**: Implement the Handlebars-based template system
+**Goal**: Implement the dockerfile-generator-based Dockerfile generation system
 
-#### 3.1 Template Management
-- [ ] Implement template loader service
-- [ ] Create template caching system
-- [ ] Implement template validation
-- [ ] Create template inheritance system
-- [ ] Implement template versioning
+#### 3.1 Dockerfile Generation Management
+- [ ] Implement dockerfile-generator integration
+- [ ] Create Dockerfile generation service
+- [ ] Implement configuration-based generation
+- [ ] Create platform-specific generation logic
+- [ ] Implement architecture-specific generation
 
-#### 3.2 Handlebars Integration
-- [ ] Set up Handlebars with custom helpers
-- [ ] Implement conditional logic helpers
-- [ ] Create array manipulation helpers
-- [ ] Implement security helpers
-- [ ] Create template debugging tools
+#### 3.2 Dockerfile as Code
+- [ ] Set up dockerfile-generator with custom builders
+- [ ] Implement conditional logic builders
+- [ ] Create platform-specific builders
+- [ ] Implement security-focused builders
+- [ ] Create Dockerfile validation tools
 
-#### 3.3 Template Types
-- [ ] Dockerfile templates
-- [ ] Nginx configuration templates
-- [ ] PHP-FPM configuration templates
-- [ ] s6-overlay service templates
-- [ ] Script templates
+#### 3.3 Generated File Types
+- [ ] Dockerfile generation (via dockerfile-generator)
+- [ ] Nginx configuration generation
+- [ ] PHP-FPM configuration generation
+- [ ] s6-overlay service generation
+- [ ] Script generation
 
-#### 3.4 Template Security
-- [ ] Implement template sanitization
+#### 3.4 Generation Security
+- [ ] Implement generation sanitization
 - [ ] Create security validation rules
-- [ ] Implement template sandboxing
+- [ ] Implement generation sandboxing
 - [ ] Create security scanning
-- [ ] Implement template signing
+- [ ] Implement output validation
 
 ### Phase 4: Command System
 **Duration**: 3-4 days
 **Goal**: Implement the CLI command system
 
-#### 4.1 CLI Framework (Pure TypeScript)
-- [ ] Implement argument parser
-- [ ] Create command router
+#### 4.1 CLI Framework (Commander.js)
+- [ ] Implement Commander.js integration
+- [ ] Create command structure and routing
 - [ ] Implement command executor
-- [ ] Create help system
-- [ ] Implement autocomplete
+- [ ] Create help system with Commander.js
+- [ ] Implement command validation and error handling
 
 #### 4.2 Command Implementation
+- [ ] Implement build:dockerfile command
 - [ ] Implement build:image command
-- [ ] Implement build:matrix command
-- [ ] Implement deploy:image command
-- [ ] Implement test:image command
-- [ ] Implement validate:image command
+- [ ] Implement deploy:hub command
+- [ ] Implement deploy:manifest command
+- [ ] Implement test:local command
+- [ ] Implement validate:config command
 
 #### 4.3 Command Features
 - [ ] Implement command chaining
@@ -138,12 +140,12 @@ This document outlines the step-by-step implementation plan for the Dockerfile G
 **Duration**: 3-4 days
 **Goal**: Implement the business logic services
 
-#### 5.1 Template Engine Service
-- [ ] Implement template rendering
-- [ ] Create template data binding
-- [ ] Implement template compilation
-- [ ] Create template optimization
-- [ ] Implement template debugging
+#### 5.1 Dockerfile Generator Service
+- [ ] Implement dockerfile-generator service
+- [ ] Create Dockerfile data binding
+- [ ] Implement Dockerfile compilation
+- [ ] Create Dockerfile optimization
+- [ ] Implement Dockerfile debugging
 
 #### 5.2 Security Engine Service
 - [ ] Implement security validation
@@ -166,132 +168,189 @@ This document outlines the step-by-step implementation plan for the Dockerfile G
 - [ ] Create backup system
 - [ ] Implement rollback functionality
 
-### Phase 6: Multi-Architecture Support
+### Phase 6: Docker Integration
+**Duration**: 3-4 days
+**Goal**: Implement Docker build, push, and manifest management
+
+#### 6.1 Docker Build Service
+- [ ] Implement Docker CLI integration
+- [ ] Create multi-architecture build support
+- [ ] Implement build caching
+- [ ] Create build optimization
+- [ ] Implement build validation
+
+#### 6.2 Docker Registry Service
+- [ ] Implement registry authentication
+- [ ] Create image push functionality
+- [ ] Implement image tagging
+- [ ] Create registry validation
+- [ ] Implement error handling
+
+#### 6.3 Manifest Management Service
+- [ ] Implement manifest creation
+- [ ] Create multi-arch manifest support
+- [ ] Implement manifest validation
+- [ ] Create manifest optimization
+- [ ] Implement manifest deployment
+
+### Phase 7: Multi-Architecture Support
 **Duration**: 2-3 days
 **Goal**: Implement automatic multi-architecture generation
 
-#### 6.1 Architecture Detection
+#### 7.1 Architecture Detection
 - [ ] Implement platform detection
 - [ ] Create architecture mapping
 - [ ] Implement base image selection
 - [ ] Create platform-specific logic
 - [ ] Implement architecture validation
 
-#### 6.2 Variant Generation
+#### 7.2 Variant Generation
 - [ ] Implement variant matrix generation
 - [ ] Create variant validation
 - [ ] Implement variant optimization
 - [ ] Create variant testing
 - [ ] Implement variant documentation
 
-#### 6.3 Output Organization
+#### 7.3 Output Organization
 - [ ] Implement output directory structure
 - [ ] Create output validation
 - [ ] Implement output optimization
 - [ ] Create output documentation
 - [ ] Implement output archiving
 
-### Phase 7: Testing & Validation
+### Phase 8: Testing & Validation
 **Duration**: 3-4 days
 **Goal**: Implement comprehensive testing and validation
 
-#### 7.1 Unit Testing
+#### 8.1 Unit Testing
 - [ ] Implement service unit tests
 - [ ] Create command unit tests
 - [ ] Implement utility unit tests
 - [ ] Create mock data and fixtures
 - [ ] Implement test coverage reporting
 
-#### 7.2 Integration Testing
+#### 8.2 Integration Testing
 - [ ] Implement end-to-end tests
 - [ ] Create integration test suites
 - [ ] Implement performance tests
 - [ ] Create stress tests
 - [ ] Implement regression tests
 
-#### 7.3 Validation Testing
+#### 8.3 Docker Integration Testing
+- [ ] Implement Docker build tests
+- [ ] Create registry push tests
+- [ ] Implement manifest tests
+- [ ] Create multi-arch tests
+- [ ] Implement error handling tests
+
+#### 8.4 Validation Testing
 - [ ] Implement configuration validation tests
-- [ ] Create template validation tests
+- [ ] Create Dockerfile generation validation tests
 - [ ] Implement security validation tests
 - [ ] Create output validation tests
 - [ ] Implement cross-platform tests
 
-#### 7.4 Test Infrastructure
+#### 8.5 Test Infrastructure
 - [ ] Set up test database
 - [ ] Create test environment management
 - [ ] Implement test data generation
 - [ ] Create test reporting
 - [ ] Implement continuous testing
 
-### Phase 8: Performance & Optimization
+### Phase 9: Performance & Optimization
 **Duration**: 2-3 days
 **Goal**: Optimize performance and resource usage
 
-#### 8.1 Performance Profiling
+#### 9.1 Performance Profiling
 - [ ] Implement performance monitoring
 - [ ] Create performance benchmarks
 - [ ] Implement memory profiling
 - [ ] Create CPU profiling
 - [ ] Implement I/O profiling
 
-#### 8.2 Optimization Strategies
+#### 9.2 Optimization Strategies
 - [ ] Implement lazy loading
 - [ ] Create caching strategies
 - [ ] Implement parallel processing
 - [ ] Create memory optimization
 - [ ] Implement I/O optimization
 
-#### 8.3 Performance Testing
+#### 9.3 Performance Testing
 - [ ] Implement load testing
 - [ ] Create stress testing
 - [ ] Implement scalability testing
 - [ ] Create performance regression testing
 - [ ] Implement performance monitoring
 
-### Phase 9: Security & Hardening
+### Phase 10: Security & Hardening
 **Duration**: 2-3 days
 **Goal**: Implement comprehensive security features
 
-#### 9.1 Security Validation
+#### 10.1 Security Validation
 - [ ] Implement input sanitization
 - [ ] Create security scanning
 - [ ] Implement vulnerability detection
 - [ ] Create security reporting
 - [ ] Implement security monitoring
 
-#### 9.2 Security Hardening
+#### 10.2 Security Hardening
 - [ ] Implement container hardening
 - [ ] Create security policies
 - [ ] Implement access control
 - [ ] Create audit logging
 - [ ] Implement incident response
 
-#### 9.3 Security Testing
+#### 10.3 Security Testing
 - [ ] Implement penetration testing
 - [ ] Create vulnerability assessment
 - [ ] Implement security regression testing
 - [ ] Create security monitoring
 - [ ] Implement security reporting
 
-### Phase 10: Documentation & Deployment
+### Phase 11: CI/CD Integration
+**Duration**: 2-3 days
+**Goal**: Implement GitHub Actions integration and deployment automation
+
+#### 11.1 GitHub Actions Setup
+- [ ] Create workflow templates
+- [ ] Implement automated builds
+- [ ] Create deployment workflows
+- [ ] Implement testing workflows
+- [ ] Create release workflows
+
+#### 11.2 Deployment Automation
+- [ ] Implement automated Docker builds
+- [ ] Create registry push automation
+- [ ] Implement manifest creation
+- [ ] Create deployment validation
+- [ ] Implement rollback procedures
+
+#### 11.3 CI/CD Testing
+- [ ] Implement workflow testing
+- [ ] Create deployment testing
+- [ ] Implement rollback testing
+- [ ] Create performance testing
+- [ ] Implement security testing
+
+### Phase 12: Documentation & Deployment
 **Duration**: 2-3 days
 **Goal**: Complete documentation and prepare for deployment
 
-#### 10.1 Documentation
+#### 12.1 Documentation
 - [ ] Complete API documentation
 - [ ] Create user guides
 - [ ] Implement help system
 - [ ] Create examples and tutorials
 - [ ] Implement documentation generation
 
-#### 10.2 Deployment Preparation
+#### 12.2 Deployment Preparation
 - [ ] Create deployment scripts
 - [ ] Implement CI/CD pipeline
 - [ ] Create Docker images
 - [ ] Implement automated testing
 - [ ] Create deployment documentation
 
-#### 10.3 Release Management
+#### 12.3 Release Management
 - [ ] Implement versioning system
 - [ ] Create release notes
 - [ ] Implement changelog
@@ -304,30 +363,34 @@ This document outlines the step-by-step implementation plan for the Dockerfile G
 - **TypeScript 5.4+**: Core language support
 - **Node.js 24+**: Runtime environment
 - **pnpm**: Package management
-- **Handlebars**: Template engine
+- **Commander.js**: CLI command parsing and routing
+- **dockerfile-generator**: Programmatic Dockerfile generation
 - **Joi**: Schema validation
 - **Vitest**: Testing framework
+- **Docker CLI**: Docker integration
+- **Docker Registry API**: Registry operations
 
 ### Optional Dependencies
 - **fs-extra**: Enhanced file operations
 - **chalk**: Terminal styling
 - **ora**: CLI spinners
 - **js-yaml**: YAML parsing
+- **dockerode**: Docker Engine API client
 
 ## Risk Assessment & Mitigation
 
 ### High-Risk Areas
-1. **Template Security**: Risk of template injection attacks
+1. **Docker Integration**: Risk of Docker CLI/API compatibility issues
+   - **Mitigation**: Comprehensive Docker version testing and fallback mechanisms
+
+2. **Registry Authentication**: Risk of authentication failures
+   - **Mitigation**: Implement robust retry logic and clear error messages
+
+3. **Multi-Architecture Builds**: Risk of architecture-specific build failures
+   - **Mitigation**: Comprehensive testing across all target architectures
+
+4. **Template Security**: Risk of template injection attacks
    - **Mitigation**: Implement strict template sandboxing and validation
-
-2. **Multi-Architecture Complexity**: Risk of architecture-specific bugs
-   - **Mitigation**: Comprehensive testing across all architectures
-
-3. **Performance**: Risk of slow generation for large matrices
-   - **Mitigation**: Implement parallel processing and caching
-
-4. **Security Hardening**: Risk of security vulnerabilities
-   - **Mitigation**: Regular security audits and automated scanning
 
 ### Medium-Risk Areas
 1. **Configuration Inheritance**: Risk of configuration conflicts
@@ -339,6 +402,9 @@ This document outlines the step-by-step implementation plan for the Dockerfile G
 3. **Testing Coverage**: Risk of untested edge cases
    - **Mitigation**: High test coverage and automated testing
 
+4. **Performance**: Risk of slow builds for large images
+   - **Mitigation**: Implement parallel processing and caching
+
 ## Success Criteria
 
 ### Functional Requirements
@@ -348,12 +414,17 @@ This document outlines the step-by-step implementation plan for the Dockerfile G
 - [ ] Implement security hardening by default
 - [ ] Support s6-overlay process management
 - [ ] Include Nginx and PHP-FPM configurations
+- [ ] Build Docker images for specified architectures
+- [ ] Push images to Docker Hub
+- [ ] Create and deploy multi-architecture manifests
 
 ### Performance Requirements
 - [ ] Startup time < 100ms
 - [ ] Config loading < 50ms
 - [ ] Template rendering < 100ms
 - [ ] File generation < 500ms
+- [ ] Docker build < 5 minutes
+- [ ] Registry push < 2 minutes
 - [ ] Memory usage < 50MB
 - [ ] CPU usage < 10%
 
@@ -361,6 +432,8 @@ This document outlines the step-by-step implementation plan for the Dockerfile G
 - [ ] 95%+ test coverage
 - [ ] Zero critical security vulnerabilities
 - [ ] All generated Dockerfiles pass validation
+- [ ] All Docker images build successfully
+- [ ] All registry operations complete successfully
 - [ ] Comprehensive error handling
 - [ ] Full TypeScript type safety
 
@@ -374,17 +447,21 @@ This document outlines the step-by-step implementation plan for the Dockerfile G
 - Complete Phase 3 (Template Engine)
 - Complete Phase 4 (Command System)
 
-### Week 3: Services & Architecture
+### Week 3: Services & Docker
 - Complete Phase 5 (Core Services)
-- Complete Phase 6 (Multi-Architecture)
+- Complete Phase 6 (Docker Integration)
 
-### Week 4: Testing & Quality
-- Complete Phase 7 (Testing & Validation)
-- Complete Phase 8 (Performance & Optimization)
+### Week 4: Architecture & Testing
+- Complete Phase 7 (Multi-Architecture)
+- Complete Phase 8 (Testing & Validation)
 
-### Week 5: Security & Deployment
-- Complete Phase 9 (Security & Hardening)
-- Complete Phase 10 (Documentation & Deployment)
+### Week 5: Performance & Security
+- Complete Phase 9 (Performance & Optimization)
+- Complete Phase 10 (Security & Hardening)
+
+### Week 6: CI/CD & Deployment
+- Complete Phase 11 (CI/CD Integration)
+- Complete Phase 12 (Documentation & Deployment)
 
 ## Next Steps
 
@@ -396,15 +473,20 @@ This document outlines the step-by-step implementation plan for the Dockerfile G
 
 ## Questions for Architecture Validation
 
-### Configuration System
-- Do we need support for environment-specific configurations?
-- Should we support configuration hot-reloading?
-- Do we need configuration versioning?
+### Docker Integration
+- Should we support Docker Compose for local development?
+- Do we need support for custom Docker registries beyond Docker Hub?
+- Should we implement Docker image scanning before push?
 
-### Template System
-- Should we support custom template plugins?
-- Do we need template versioning and rollback?
-- Should we support template inheritance beyond Handlebars?
+### Registry Operations
+- Do we need support for image signing?
+- Should we implement registry mirroring?
+- Do we need support for private registries?
+
+### CI/CD Integration
+- Should we support other CI/CD platforms beyond GitHub Actions?
+- Do we need support for automated testing in CI/CD?
+- Should we implement deployment notifications?
 
 ### Security System
 - Do we need integration with external security scanners?
@@ -412,63 +494,58 @@ This document outlines the step-by-step implementation plan for the Dockerfile G
 - Do we need security compliance reporting?
 
 ### Performance System
-- Should we implement distributed processing for large matrices?
+- Should we implement distributed processing for large builds?
 - Do we need performance monitoring in production?
 - Should we implement performance-based auto-scaling?
-
-### Integration System
-- Do we need a REST API for external integration?
-- Should we support webhook notifications?
-- Do we need integration with external CI/CD systems?
 
 ## Architectural Gaps Discovered
 
 After creating this implementation plan, several potential architectural gaps have been identified:
 
-### 1. **Configuration Hot-Reloading**
-- **Gap**: No mechanism for updating configurations without restarting
-- **Impact**: Poor developer experience during development
-- **Solution**: Implement file watchers and configuration reloading
+### 1. **Docker Version Compatibility**
+- **Gap**: No mechanism for handling different Docker versions
+- **Impact**: Build failures on different Docker versions
+- **Solution**: Implement Docker version detection and compatibility layers
 
-### 2. **Template Versioning & Rollback**
-- **Gap**: No way to version templates or rollback changes
-- **Impact**: Risk of breaking changes in production
-- **Solution**: Implement template versioning system with rollback capability
+### 2. **Registry Rate Limiting**
+- **Gap**: No handling of Docker Hub rate limits
+- **Impact**: Push failures during high-volume deployments
+- **Solution**: Implement rate limiting and retry logic
 
-### 3. **Distributed Processing**
-- **Gap**: No support for processing large matrices across multiple machines
-- **Impact**: Performance bottleneck for large-scale operations
-- **Solution**: Implement distributed processing with worker pools
+### 3. **Build Caching Strategy**
+- **Gap**: No persistent build cache across runs
+- **Impact**: Slower builds on subsequent runs
+- **Solution**: Implement persistent Docker layer caching
 
-### 4. **External Security Scanner Integration**
-- **Gap**: No integration with external security scanning tools
-- **Impact**: Limited security validation capabilities
-- **Solution**: Implement plugin system for external security tools
+### 4. **Multi-Registry Support**
+- **Gap**: Limited to Docker Hub only
+- **Impact**: Cannot use other registries
+- **Solution**: Implement registry abstraction layer
 
-### 5. **Performance Monitoring in Production**
-- **Gap**: No production performance monitoring
-- **Impact**: Unable to detect performance issues in production
-- **Solution**: Implement production monitoring and alerting
+### 5. **Image Signing**
+- **Gap**: No support for image signing
+- **Impact**: Security concerns in production
+- **Solution**: Implement Docker content trust integration
 
-### 6. **REST API for External Integration**
-- **Gap**: No API for external system integration
-- **Impact**: Limited integration capabilities
-- **Solution**: Implement REST API with authentication and rate limiting
+### 6. **Build Parallelization**
+- **Gap**: No parallel build support for multiple architectures
+- **Impact**: Slower multi-arch builds
+- **Solution**: Implement parallel Docker build execution
 
-### 7. **Configuration Environment Support**
-- **Gap**: No environment-specific configuration support
-- **Impact**: Same config for all environments
-- **Solution**: Implement environment-aware configuration system
+### 7. **Registry Mirroring**
+- **Gap**: No support for registry mirrors
+- **Impact**: Slower image pulls in some regions
+- **Solution**: Implement registry mirror configuration
 
-### 8. **Template Plugin System**
-- **Gap**: No support for custom template plugins
-- **Impact**: Limited extensibility
-- **Solution**: Implement plugin architecture for templates
+### 8. **Build Artifact Management**
+- **Gap**: No cleanup of build artifacts
+- **Impact**: Disk space issues over time
+- **Solution**: Implement automatic artifact cleanup
 
 ## Conclusion
 
-This implementation plan provides a comprehensive roadmap for building the Dockerfile Generator CLI tool. The plan addresses all the requirements identified in the system architecture while revealing potential gaps that should be considered during implementation.
+This implementation plan provides a comprehensive roadmap for building the Dockerfile Generator CLI tool with Docker integration. The plan addresses all the requirements identified in the system architecture while revealing potential gaps that should be considered during implementation.
 
 The phased approach allows for iterative development and testing, ensuring that each component is solid before moving to the next phase. The identified architectural gaps provide opportunities for future enhancements and should be prioritized based on business needs and resource availability.
 
-By following this implementation plan, we can build a robust, secure, and performant tool that meets all the specified requirements while maintaining the flexibility for future enhancements.
+By following this implementation plan, we can build a robust, secure, and performant tool that meets all the specified requirements while maintaining the flexibility for future enhancements. The Docker integration and CI/CD readiness make it ideal for automated deployments and production use.

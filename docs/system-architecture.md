@@ -2,16 +2,19 @@
 
 ## Overview
 
-The Dockerfile Generator CLI is a pure TypeScript tool designed to generate hardened, multi-architecture Docker images for web server setups with Nginx and PHP. The system automatically handles ARM64 and AMD64 architectures while maintaining platform-specific configurations for Alpine and Ubuntu.
+The Dockerfile Generator CLI is a pure TypeScript tool designed to generate hardened, multi-architecture Docker images for web server setups with Nginx and PHP. The system takes platform (alpine/ubuntu), PHP version, and additional options as input, then generates Dockerfiles, builds images, and deploys them to Docker Hub with multi-architecture manifests.
 
 ## Core Principles
 
-- **Pure TypeScript**: No frameworks, maximum performance
+- **Pure TypeScript**: No frameworks for core business logic, maximum performance
+- **Commander.js Integration**: Use commander.js for CLI command parsing and routing
+- **Dockerfile as Code**: Use dockerfile-generator for programmatic Dockerfile creation
 - **Latest Versions**: Always use latest stable versions of all dependencies
 - **Performance First**: Optimized for speed and efficiency
 - **Security by Default**: Hardened configurations with no security level options
 - **Multi-Architecture**: Automatic generation for both ARM64 and AMD64
-- **Platform Agnostic**: Same templates, different platform logic
+- **Platform Agnostic**: Same logic, different platform configurations
+- **CI/CD Ready**: Designed for GitHub Actions integration
 
 ## System Architecture
 
@@ -20,13 +23,13 @@ The Dockerfile Generator CLI is a pure TypeScript tool designed to generate hard
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    CLI Entry Point                          │
-│                    (Pure TypeScript)                       │
+│                 (Commander.js)                             │
 └─────────────────────┬───────────────────────────────────────┘
                       │
                       ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                 Command Router                              │
-│           (Routes to specific commands)                    │
+│           (Commander.js routing)                           │
 └─────────────────────┬───────────────────────────────────────┘
                       │
                       ▼
@@ -34,8 +37,8 @@ The Dockerfile Generator CLI is a pure TypeScript tool designed to generate hard
 │              Command Executors                              │
 │  ┌─────────────┬─────────────┬─────────────┬─────────────┐ │
 │  │   build:    │   deploy:   │    test:    │ validate:  │ │
-│  │   image     │   image     │   image     │   image    │ │
-│  │   matrix    │   matrix    │   matrix    │   matrix   │ │
+│  │   image     │   image     │   local     │   config   │ │
+│  │   dockerfile│   hub       │             │             │ │
 │  └─────────────┴─────────────┴─────────────┴─────────────┘ │
 └─────────────────────┬───────────────────────────────────────┘
                       │
@@ -43,8 +46,9 @@ The Dockerfile Generator CLI is a pure TypeScript tool designed to generate hard
 ┌─────────────────────────────────────────────────────────────┐
 │              Core Services                                  │
 │  ┌─────────────┬─────────────┬─────────────┬─────────────┐ │
-│  │ Template    │ Security    │  Config     │ Validation │ │
-│  │  Engine     │  Engine     │  Manager    │  Engine    │ │
+│  │ Dockerfile  │ Security    │  Config     │ Validation │ │
+│  │ Generator   │  Engine     │  Manager    │  Engine    │ │
+│  │  Service    │             │             │             │ │
 │  └─────────────┴─────────────┴─────────────┴─────────────┘ │
 └─────────────────────┬───────────────────────────────────────┘
                       │
@@ -54,6 +58,8 @@ The Dockerfile Generator CLI is a pure TypeScript tool designed to generate hard
 │  ┌─────────────┬─────────────┬─────────────┬─────────────┐ │
 │  │ Dockerfile  │   Nginx     │   PHP-FPM   │   s6-      │ │
 │  │ Generator   │   Config    │   Config    │  Overlay   │ │
+│  │ (dockerfile-│   Service   │   Service   │  Service   │ │
+│  │  generator) │             │             │             │ │
 │  └─────────────┴─────────────┴─────────────┴─────────────┘ │
 └─────────────────────┬───────────────────────────────────────┘
                       │
@@ -61,73 +67,220 @@ The Dockerfile Generator CLI is a pure TypeScript tool designed to generate hard
 ┌─────────────────────────────────────────────────────────────┐
 │              File System Layer                              │
 │                    (Native Node.js)                        │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Docker Integration                             │
+│  ┌─────────────┬─────────────┬─────────────┬─────────────┐ │
+│  │   Build     │   Registry  │   Manifest  │   Push     │ │
+│  │   Engine    │   Client    │   Manager   │   Service  │ │
+│  └─────────────┴─────────────┴─────────────┴─────────────┘ │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ## Command Architecture
 
-### Flat Command Structure with Colon Delimiters
+### Commander.js Integration
 
-Commands are organized in flat groups using colons as delimiters for better understanding and autocomplete support.
+The system uses Commander.js for robust command-line argument parsing and routing, providing a clean and maintainable CLI structure.
+
+#### Command Structure
+
+Commands are organized in flat groups using colons as delimiters, focusing on the core workflow: generate → build → deploy.
 
 #### Command Groups
 
-- **build:** - Image generation commands
-- **deploy:** - Deployment and distribution commands  
-- **test:** - Testing and validation commands
+- **build:** - Dockerfile generation and image building commands
+- **deploy:** - Docker Hub deployment and manifest management commands  
+- **test:** - Local testing and validation commands
 - **validate:** - Configuration and output validation commands
 
 #### Command Examples
 
 ```bash
 # Build commands
-dockerfile-generator build:image --php 8.3 --platform alpine
-dockerfile-generator build:image --all
-dockerfile-generator build:matrix
+dockerfile-generator build:dockerfile --php 8.3 --platform alpine
+dockerfile-generator build:image --php 8.3 --platform alpine --arch arm64
+dockerfile-generator build:image --php 8.3 --platform alpine --arch all
 
 # Deploy commands
-dockerfile-generator deploy:image --env prod
+dockerfile-generator deploy:hub --php 8.3 --platform alpine --tag latest
+dockerfile-generator deploy:manifest --php 8.3 --platform alpine --tag latest
 
 # Test commands
-dockerfile-generator test:image --php 8.3
+dockerfile-generator test:local --php 8.3 --platform alpine
 
 # Validate commands
-dockerfile-generator validate:image --php 8.3
+dockerfile-generator validate:config --php 8.3 --platform alpine
+```
+
+### Commander.js Implementation
+
+```typescript
+import { Command } from 'commander';
+
+const program = new Command();
+
+program
+  .name('dockerfile-generator')
+  .description('Generate hardened, multi-architecture Docker images')
+  .version('0.1.0');
+
+// Build commands
+program
+  .command('build:dockerfile')
+  .description('Generate Dockerfile for specified configuration')
+  .requiredOption('--php <version>', 'PHP version (7.4, 8.0, 8.1, 8.2, 8.3, 8.4)')
+  .requiredOption('--platform <platform>', 'Platform (alpine, ubuntu)')
+  .option('--arch <architecture>', 'Architecture (arm64, amd64, all)', 'all')
+  .action(async (options) => {
+    // Execute build:dockerfile command
+  });
+
+program
+  .command('build:image')
+  .description('Build Docker image for specified configuration')
+  .requiredOption('--php <version>', 'PHP version (7.4, 8.0, 8.1, 8.2, 8.3, 8.4)')
+  .requiredOption('--platform <platform>', 'Platform (alpine, ubuntu)')
+  .option('--arch <architecture>', 'Architecture (arm64, amd64, all)', 'all')
+  .option('--tag <tag>', 'Image tag', 'latest')
+  .action(async (options) => {
+    // Execute build:image command
+  });
+
+// Deploy commands
+program
+  .command('deploy:hub')
+  .description('Deploy image to Docker Hub')
+  .requiredOption('--php <version>', 'PHP version (7.4, 8.0, 8.1, 8.2, 8.3, 8.4)')
+  .requiredOption('--platform <platform>', 'Platform (alpine, ubuntu)')
+  .requiredOption('--tag <tag>', 'Image tag')
+  .option('--username <username>', 'Docker Hub username')
+  .option('--password <password>', 'Docker Hub password/token')
+  .action(async (options) => {
+    // Execute deploy:hub command
+  });
+
+program
+  .command('deploy:manifest')
+  .description('Create and deploy multi-architecture manifest')
+  .requiredOption('--php <version>', 'PHP version (7.4, 8.0, 8.1, 8.2, 8.3, 8.4)')
+  .requiredOption('--platform <platform>', 'Platform (alpine, ubuntu)')
+  .requiredOption('--tag <tag>', 'Image tag')
+  .action(async (options) => {
+    // Execute deploy:manifest command
+  });
+
+// Test commands
+program
+  .command('test:local')
+  .description('Test generated configuration locally')
+  .requiredOption('--php <version>', 'PHP version (7.4, 8.0, 8.1, 8.2, 8.3, 8.4)')
+  .requiredOption('--platform <platform>', 'Platform (alpine, ubuntu)')
+  .action(async (options) => {
+    // Execute test:local command
+  });
+
+// Validate commands
+program
+  .command('validate:config')
+  .description('Validate configuration for specified setup')
+  .requiredOption('--php <version>', 'PHP version (7.4, 8.0, 8.1, 8.2, 8.3, 8.4)')
+  .requiredOption('--platform <platform>', 'Platform (alpine, ubuntu)')
+  .action(async (options) => {
+    // Execute validate:config command
+  });
+
+program.parse();
 ```
 
 ### Command Flow Architecture
 
-#### 1. Build Command Flow
+#### 1. Build Dockerfile Command Flow
 ```
-CLI Input → Parse Args → Validate Config → Generate Matrix → Create Output → Success
+CLI Input → Parse Args → Validate Config → Generate Dockerfile → Write Output → Success
     │           │           │              │              │
     ▼           ▼           ▼              ▼              ▼
 ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
-│  build  │ │  --php  │ │  Schema │ │  PHP    │ │  Files  │
-│ --all   │ │  8.3    │ │ Validate│ │ Versions│ │ Written │
+│  build  │ │  --php  │ │  Schema │ │  Render │ │  Files  │
+│:dockerfile│ │  8.3    │ │ Validate│ │Template │ │ Written │
 └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘
 ```
 
-#### 2. Deploy Command Flow
+#### 2. Build Image Command Flow
 ```
-CLI Input → Parse Args → Load Config → Validate → Generate → Success
+CLI Input → Parse Args → Load Config → Build Image → Validate → Success
     │           │           │          │         │
     ▼           ▼           ▼          ▼         ▼
 ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
-│ deploy  │ │  --env  │ │  Config │ │  Check  │ │  Deploy │
-│ --prod  │ │  prod   │ │  Loaded │ │  Passed │ │  Files  │
+│  build  │ │  --arch │ │  Config │ │  Docker │ │  Image  │
+│ :image  │ │  arm64  │ │  Loaded │ │  Build  │ │  Ready  │
 └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘
 ```
 
-#### 3. Test Command Flow
+#### 3. Deploy to Hub Command Flow
 ```
-CLI Input → Parse Args → Load Tests → Execute → Validate → Report
-    │           │           │         │         │
-    ▼           ▼           ▼         ▼         ▼
+CLI Input → Parse Args → Load Config → Push Image → Tag → Success
+    │           │           │          │         │
+    ▼           ▼           ▼          ▼         ▼
 ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
-│  test   │ │  --type │ │  Test   │ │  Run    │ │  Output │
-│ --all   │ │  unit   │ │  Suite  │ │  Tests  │ │ Results │
+│ deploy  │ │  --tag  │ │  Config │ │  Push   │ │  Image  │
+│ :hub    │ │  latest │ │  Loaded │ │  Image  │ │  Pushed │
 └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘
+```
+
+#### 4. Deploy Manifest Command Flow
+```
+CLI Input → Parse Args → Load Images → Create Manifest → Push → Success
+    │           │           │          │         │
+    ▼           ▼           ▼          ▼         ▼
+┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
+│ deploy  │ │  --tag  │ │  Load   │ │  Create │ │ Manifest│
+│:manifest│ │  latest │ │  Images │ │ Manifest│ │  Pushed │
+└─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘
+```
+
+## Input Parameters
+
+### Core Input Structure
+
+The system takes three main input parameters:
+
+```typescript
+interface BuildInput {
+  platform: 'alpine' | 'ubuntu';  // Platform selection
+  phpVersion: string;              // PHP version (7.4, 8.0, 8.1, 8.2, 8.3, 8.4)
+  options?: BuildOptions;          // Additional build options
+}
+
+interface BuildOptions {
+  arch?: 'arm64' | 'amd64' | 'all';  // Architecture selection
+  tag?: string;                       // Image tag
+  registry?: string;                  // Docker registry URL
+  username?: string;                  // Docker Hub username
+  password?: string;                  // Docker Hub password/token
+  push?: boolean;                     // Auto-push after build
+  manifest?: boolean;                 // Create multi-arch manifest
+}
+```
+
+### Input Validation
+
+```typescript
+const inputSchema = Joi.object({
+  platform: Joi.string().valid('alpine', 'ubuntu').required(),
+  phpVersion: Joi.string().pattern(/^[78]\.[0-4]$/).required(),
+  options: Joi.object({
+    arch: Joi.string().valid('arm64', 'amd64', 'all').default('all'),
+    tag: Joi.string().default('latest'),
+    registry: Joi.string().uri().default('docker.io'),
+    username: Joi.string().when('push', { is: true, then: Joi.required() }),
+    password: Joi.string().when('push', { is: true, then: Joi.required() }),
+    push: Joi.boolean().default(false),
+    manifest: Joi.boolean().default(true)
+  })
+});
 ```
 
 ## Configuration System
@@ -215,69 +368,94 @@ Base Config → Platform Config → Final Config → Template Rendering
 └─────────┘ └─────────────┘ └─────────────┘ └─────────────┘
 ```
 
-## Template System
+## Dockerfile Generation System
 
-### Handlebars Integration
+### dockerfile-generator Integration
 
-The system uses Handlebars as the template engine for its simplicity, performance, and extensibility.
+The system uses dockerfile-generator for programmatic Dockerfile creation, providing type-safe and maintainable Dockerfile generation.
 
-#### Template Structure
+#### Generation Structure
 
-- **Single Template**: One template per file type (Dockerfile, Nginx, PHP-FPM, s6-overlay)
-- **Architecture Agnostic**: Same template used for both ARM64 and AMD64
-- **Platform Conditional**: Platform-specific logic handled by Handlebars helpers
-- **Variable Substitution**: Dynamic content injected from configuration
+- **Programmatic Generation**: Dockerfiles generated via TypeScript code instead of templates
+- **Architecture Agnostic**: Same generation logic used for both ARM64 and AMD64
+- **Platform Conditional**: Platform-specific logic handled by conditional builders
+- **Configuration Driven**: Dynamic content generated from configuration objects
 
-#### Template Examples
+#### Generation Examples
 
-**Dockerfile Template**
-```handlebars
-FROM {{baseImage}}
+**Dockerfile Generation**
+```typescript
+import { Dockerfile } from 'dockerfile-generator';
 
-# Platform-specific package installation
-{{#if (eq platform.type "alpine")}}
-RUN apk add --no-cache {{#each platform.packages}}{{this}} {{/each}}
-{{else if (eq platform.type "ubuntu")}}
-RUN {{#each platform.ubuntu.updateCommands}}{{this}} && {{/each}}apt-get install -y {{#each platform.packages}}{{this}} {{/each}}
-{{/if}}
-
-# PHP configuration
-COPY php-fpm.conf /etc/php/{{php.version}}/fpm/php-fpm.conf
-COPY nginx.conf /etc/nginx/nginx.conf
-
-# Security setup
-RUN groupadd -r {{security.group}} && useradd -r -g {{security.group}} {{security.user}}
-
-# s6-overlay setup
-COPY s6-overlay/ /etc/s6-overlay/
-
-# Platform-specific cleanup
-{{#if (eq platform.type "alpine")}}
-{{#each platform.alpine.cleanupCommands}}
-RUN {{this}}
-{{/each}}
-{{else if (eq platform.type "ubuntu")}}
-{{#each platform.ubuntu.cleanupCommands}}
-RUN {{this}}
-{{/each}}
-{{/if}}
-
-EXPOSE 80
-CMD ["/init"]
+const generateDockerfile = (config: BuildConfig): string => {
+  const dockerfile = new Dockerfile();
+  
+  // Base image selection
+  const baseImage = getBaseImage(config.platform, config.architecture);
+  dockerfile.from(baseImage);
+  
+  // Platform-specific package installation
+  if (config.platform === 'alpine') {
+    dockerfile.run('apk', 'add', '--no-cache', ...config.packages);
+  } else if (config.platform === 'ubuntu') {
+    dockerfile.run('apt-get', 'update');
+    dockerfile.run('apt-get', 'install', '-y', ...config.packages);
+  }
+  
+  // PHP configuration
+  dockerfile.copy('php-fpm.conf', `/etc/php/${config.php.version}/fpm/php-fpm.conf`);
+  dockerfile.copy('nginx.conf', '/etc/nginx/nginx.conf');
+  
+  // Security setup
+  dockerfile.run('groupadd', '-r', config.security.group);
+  dockerfile.run('useradd', '-r', '-g', config.security.group, config.security.user);
+  
+  // s6-overlay setup
+  dockerfile.copy('s6-overlay/', '/etc/s6-overlay/');
+  
+  // Platform-specific cleanup
+  if (config.platform === 'alpine') {
+    config.alpine.cleanupCommands.forEach(cmd => dockerfile.run(...cmd.split(' ')));
+  } else if (config.platform === 'ubuntu') {
+    config.ubuntu.cleanupCommands.forEach(cmd => dockerfile.run(...cmd.split(' ')));
+  }
+  
+  dockerfile.expose(80);
+  dockerfile.cmd(['/init']);
+  
+  return dockerfile.toString();
+};
 ```
 
-#### Custom Handlebars Helpers
+#### Custom Builders
 
 ```typescript
-// Equality helper
-Handlebars.registerHelper('eq', function(a, b) {
-  return a === b;
-});
+// Platform-specific builders
+class AlpineBuilder extends BaseBuilder {
+  installPackages(packages: string[]): this {
+    this.dockerfile.run('apk', 'add', '--no-cache', ...packages);
+    return this;
+  }
+  
+  cleanup(): this {
+    this.dockerfile.run('apk', 'cache', 'clean');
+    return this;
+  }
+}
 
-// Array joining helper
-Handlebars.registerHelper('join', function(array, separator) {
-  return array.join(separator);
-});
+class UbuntuBuilder extends BaseBuilder {
+  installPackages(packages: string[]): this {
+    this.dockerfile.run('apt-get', 'update');
+    this.dockerfile.run('apt-get', 'install', '-y', ...packages);
+    return this;
+  }
+  
+  cleanup(): this {
+    this.dockerfile.run('apt-get', 'clean');
+    this.dockerfile.run('rm', '-rf', '/var/lib/apt/lists/*');
+    return this;
+  }
+}
 ```
 
 ## Multi-Architecture Generation
@@ -343,6 +521,104 @@ const baseImages = {
 };
 ```
 
+## Docker Integration
+
+### Docker Build Engine
+
+The system integrates with Docker to build images for different architectures.
+
+#### Build Process
+
+```typescript
+interface DockerBuildOptions {
+  platform: 'linux/arm64' | 'linux/amd64';
+  tag: string;
+  context: string;
+  dockerfile: string;
+  push: boolean;
+  registry: string;
+  username?: string;
+  password?: string;
+}
+
+class DockerBuildService {
+  async buildImage(options: DockerBuildOptions): Promise<string> {
+    // Use Docker CLI or Docker Engine API
+    // Build image for specific architecture
+    // Return image ID or tag
+  }
+  
+  async buildMultiArch(options: MultiArchBuildOptions): Promise<string[]> {
+    // Build images for all architectures
+    // Return array of image IDs
+  }
+}
+```
+
+### Docker Registry Integration
+
+The system integrates with Docker Hub and other registries for image distribution.
+
+#### Registry Operations
+
+```typescript
+interface RegistryOptions {
+  registry: string;
+  username: string;
+  password: string;
+  namespace: string;
+  repository: string;
+  tag: string;
+}
+
+class RegistryService {
+  async pushImage(options: RegistryOptions): Promise<void> {
+    // Push image to registry
+    // Handle authentication
+    // Return success/failure
+  }
+  
+  async createManifest(options: ManifestOptions): Promise<void> {
+    // Create multi-architecture manifest
+    // Push manifest to registry
+    // Return success/failure
+  }
+}
+```
+
+### Multi-Architecture Manifest Management
+
+The system creates and manages Docker manifests for multi-architecture images.
+
+#### Manifest Creation
+
+```typescript
+interface ManifestOptions {
+  registry: string;
+  username: string;
+  password: string;
+  namespace: string;
+  repository: string;
+  tag: string;
+  architectures: string[];
+  images: string[];
+}
+
+class ManifestService {
+  async createManifest(options: ManifestOptions): Promise<void> {
+    // Create manifest list
+    // Add architecture-specific images
+    // Push manifest to registry
+  }
+  
+  async updateManifest(options: ManifestOptions): Promise<void> {
+    // Update existing manifest
+    // Add/remove architectures
+    // Push updated manifest
+  }
+}
+```
+
 ## Security Engine
 
 ### Security Hardening
@@ -383,7 +659,7 @@ The system validates all configurations at multiple levels to ensure correctness
 1. **Schema Validation**: Joi schemas validate configuration structure
 2. **Type Validation**: TypeScript interfaces ensure type safety
 3. **Security Validation**: Security rules validate security configurations
-4. **Template Validation**: Templates validated for syntax and security
+4. **Generation Validation**: Generated Dockerfiles validated for syntax and security
 5. **Output Validation**: Generated files validated for correctness
 
 #### Validation Schema Example
@@ -423,6 +699,8 @@ The system implements comprehensive error handling with typed errors and helpful
 - **TEMPLATE_ERROR**: Template rendering failures
 - **FILE_WRITE_ERROR**: File system operation failures
 - **SECURITY_ERROR**: Security validation failures
+- **DOCKER_ERROR**: Docker operation failures
+- **REGISTRY_ERROR**: Registry operation failures
 
 #### Error Handling Flow
 
@@ -465,7 +743,8 @@ The system includes comprehensive testing capabilities to ensure reliability and
 3. **Configuration Tests**: Configuration validation testing
 4. **Template Tests**: Template rendering testing
 5. **Security Tests**: Security validation testing
-6. **End-to-End Tests**: Complete integration testing
+6. **Docker Tests**: Docker integration testing
+7. **Registry Tests**: Registry integration testing
 
 #### Test Command Examples
 
@@ -476,10 +755,10 @@ dockerfile-generator test:all
 # Run specific test types
 dockerfile-generator test:config
 dockerfile-generator test:template
-dockerfile-generator test:security
+dockerfile-generator test:docker
 
 # Run tests for specific variants
-dockerfile-generator test:image --php 8.3 --platform alpine
+dockerfile-generator test:local --php 8.3 --platform alpine
 ```
 
 #### Test Flow
@@ -505,9 +784,8 @@ The system is designed for maximum performance in CI/CD environments.
 1. **Lazy Loading**: Load only required configurations and templates
 2. **Template Caching**: Cache compiled templates for reuse
 3. **Parallel Processing**: Generate multiple variants simultaneously
-4. **Incremental Compilation**: TypeScript incremental builds
-5. **Memory Management**: Efficient memory usage patterns
-6. **Streaming**: Process large files efficiently
+4. **Memory Management**: Efficient memory usage patterns
+5. **Streaming**: Process large files efficiently
 
 #### Performance Benchmarks
 
@@ -517,6 +795,8 @@ The system is designed for maximum performance in CI/CD environments.
 | Config Loading | < 50ms |
 | Template Rendering | < 100ms |
 | File Generation | < 500ms |
+| Docker Build | < 5 minutes |
+| Registry Push | < 2 minutes |
 | Memory Usage | < 50MB |
 | CPU Usage | < 10% |
 
@@ -541,11 +821,53 @@ The system generates complete Docker image configurations with all necessary fil
 Config Load → Template Render → Security Check → File Write → Validation
      │            │                │              │            │
      ▼            ▼                ▼              ▼            ▼
-┌─────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────┐
-│  Load   │ │  Render     │ │  Security   │ │  Write      │ │ Validate│
-│ Config  │ │  Template   │ │  Validate   │ │  Files      │ │ Output  │
-└─────────┘ └─────────────┘ └─────────────┘ └─────────────┘ └─────────┘
+┌─────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────┐ ┌─────────┐
+│  Load   │ │  Render     │ │  Security   │ │  Write  │ │ Validate│
+│ Config  │ │  Template   │ │  Validate   │ │  Files  │ │ Output  │
+└─────────┘ └─────────────┘ └─────────────┘ └─────────┘ └─────────┘
 ```
+
+## CI/CD Integration
+
+### GitHub Actions Integration
+
+The system is designed to integrate seamlessly with GitHub Actions for automated builds and deployments.
+
+#### Workflow Integration
+
+```yaml
+# Example GitHub Actions workflow
+name: Build and Deploy Docker Images
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci
+      - run: npm run build
+      - run: |
+          dockerfile-generator build:dockerfile --php 8.3 --platform alpine
+          dockerfile-generator build:image --php 8.3 --platform alpine --arch all
+          dockerfile-generator deploy:hub --php 8.3 --platform alpine --tag ${{ github.ref_name }}
+          dockerfile-generator deploy:manifest --php 8.3 --platform alpine --tag ${{ github.ref_name }}
+```
+
+#### Automated Workflow
+
+1. **Tag Creation**: New Git tag triggers workflow
+2. **Dockerfile Generation**: Generate platform-specific Dockerfiles
+3. **Multi-Arch Build**: Build images for ARM64 and AMD64
+4. **Registry Push**: Push images to Docker Hub
+5. **Manifest Creation**: Create and push multi-arch manifests
+6. **Deployment**: Deploy to production environments
 
 ## Integration Points
 
@@ -561,7 +883,7 @@ The system integrates with various external systems for enhanced functionality.
 
 #### CI/CD Integration
 
-- **GitHub Actions**: Automated builds
+- **GitHub Actions**: Automated builds and deployments
 - **GitLab CI**: Pipeline integration
 - **Jenkins**: Build automation
 - **ArgoCD**: GitOps deployment
@@ -610,6 +932,8 @@ The system includes comprehensive monitoring and observability capabilities.
 - **Error Metrics**: Error rates, failure patterns
 - **Resource Metrics**: Memory, CPU, disk usage
 - **Business Metrics**: Generated variants, success rates
+- **Docker Metrics**: Build times, push times
+- **Registry Metrics**: Push success rates, manifest creation
 
 #### Logging Strategy
 
@@ -670,11 +994,13 @@ This system architecture provides a robust, scalable, and maintainable foundatio
 The architecture successfully addresses all requirements:
 - ✅ Pure TypeScript implementation
 - ✅ Multi-architecture support
-- ✅ Platform-specific configurations
+- ✅ Platform-specific configurations (Alpine/Ubuntu)
 - ✅ Security hardening by default
 - ✅ Comprehensive validation and testing
 - ✅ Error handling and recovery
 - ✅ Performance optimization
+- ✅ Docker integration (build, push, manifest)
+- ✅ CI/CD ready (GitHub Actions)
 - ✅ Extensibility and maintainability
 
-This foundation enables the tool to efficiently generate hardened, production-ready Docker images for various PHP versions and platforms while maintaining the highest standards of security and performance.
+This foundation enables the tool to efficiently generate hardened, production-ready Docker images for various PHP versions and platforms while maintaining the highest standards of security and performance. The simplified command structure and focused workflow make it ideal for CI/CD integration and automated deployments.
