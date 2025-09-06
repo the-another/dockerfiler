@@ -2,6 +2,7 @@ import type { Command } from '@/commands';
 import { DockerBuildService } from '@/services';
 import { ConfigManager } from '@/services';
 import { ValidationEngine } from '@/services';
+import { logger } from '@/services';
 import { PHPVersion, Platform, Architecture } from '@/types';
 import { PHPVersionTypeUtil, PlatformTypeUtil, ArchitectureTypeUtil } from '@/utils';
 
@@ -15,6 +16,10 @@ export interface BuildImageArgs {
 }
 
 export class BuildImageCommand implements Command<BuildImageArgs, void> {
+  private static readonly SERVICE_NAME = 'build-image' as const;
+  private static readonly OPERATION_EXECUTE = 'execute' as const;
+  private static readonly OPERATION_PUSH = 'push' as const;
+
   private dockerBuildService: DockerBuildService;
   private configManager: ConfigManager;
   private validationEngine: ValidationEngine;
@@ -44,18 +49,40 @@ export class BuildImageCommand implements Command<BuildImageArgs, void> {
         outputPath: args.outputPath,
       });
 
-      console.log(
-        `✅ Docker image built successfully for PHP ${args.phpVersion} on ${args.platform} (${args.architecture})`
-      );
-      console.log(`🐳 Image ID: ${imageId}`);
+      logger.info('Docker image built successfully', {
+        service: BuildImageCommand.SERVICE_NAME,
+        operation: BuildImageCommand.OPERATION_EXECUTE,
+        metadata: {
+          phpVersion: args.phpVersion,
+          platform: args.platform,
+          architecture: args.architecture,
+          imageId,
+          tag: args.tag,
+        },
+      });
 
       // Push image if requested
       if (args.push) {
         await this.dockerBuildService.pushImage(imageId, args.tag);
-        console.log(`📤 Image pushed successfully with tag: ${args.tag}`);
+        logger.info('Image pushed successfully', {
+          service: BuildImageCommand.SERVICE_NAME,
+          operation: BuildImageCommand.OPERATION_PUSH,
+          metadata: {
+            imageId,
+            tag: args.tag,
+          },
+        });
       }
     } catch (error) {
-      console.error('❌ Error building Docker image:', error);
+      logger.error(
+        'Error building Docker image',
+        {
+          service: BuildImageCommand.SERVICE_NAME,
+          operation: BuildImageCommand.OPERATION_EXECUTE,
+          metadata: { args },
+        },
+        error instanceof Error ? error : new Error(String(error))
+      );
       throw error;
     }
   }

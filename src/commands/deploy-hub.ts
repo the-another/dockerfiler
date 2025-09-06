@@ -1,4 +1,5 @@
 import type { Command } from '@/commands';
+import { logger } from '@/services';
 import { PHPVersion, Platform } from '@/types';
 import { PHPVersionTypeUtil, PlatformTypeUtil } from '@/utils';
 
@@ -12,18 +13,38 @@ export interface DeployHubArgs {
 }
 
 export class DeployHubCommand implements Command<DeployHubArgs, void> {
+  private static readonly SERVICE_NAME = 'deploy-hub' as const;
+  private static readonly OPERATION_EXECUTE = 'execute' as const;
   async execute(args: DeployHubArgs): Promise<void> {
     try {
       // Validate arguments
       this.validateArgs(args);
 
       // TODO: Implement Docker Hub deployment logic
-      console.log(
-        `🚀 Deploying PHP ${args.phpVersion} on ${args.platform} to ${args.registry} with tag: ${args.tag}`
-      );
-      console.log('⚠️  Docker Hub deployment not yet implemented');
+      logger.info('Starting Docker Hub deployment', {
+        service: DeployHubCommand.SERVICE_NAME,
+        operation: DeployHubCommand.OPERATION_EXECUTE,
+        metadata: {
+          phpVersion: args.phpVersion,
+          platform: args.platform,
+          registry: args.registry,
+          tag: args.tag,
+        },
+      });
+      logger.warn('Docker Hub deployment not yet implemented', {
+        service: DeployHubCommand.SERVICE_NAME,
+        operation: DeployHubCommand.OPERATION_EXECUTE,
+      });
     } catch (error) {
-      console.error('❌ Error deploying to hub:', error);
+      logger.error(
+        'Error deploying to hub',
+        {
+          service: DeployHubCommand.SERVICE_NAME,
+          operation: DeployHubCommand.OPERATION_EXECUTE,
+          metadata: { args },
+        },
+        error instanceof Error ? error : new Error(String(error))
+      );
       throw error;
     }
   }

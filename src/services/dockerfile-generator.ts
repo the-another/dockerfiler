@@ -6,6 +6,7 @@
  */
 
 import { ErrorHandlerService } from './error-handler';
+import { logger } from './logger';
 import { ConfigLoaderError, ErrorType, ErrorSeverity } from '@/types';
 
 export interface BuildConfig {
@@ -29,6 +30,10 @@ export interface BuildConfig {
 }
 
 export class DockerfileGeneratorService {
+  private static readonly SERVICE_NAME = 'dockerfile-generator' as const;
+  private static readonly OPERATION_GENERATE_DOCKERFILE = 'generateDockerfile' as const;
+  private static readonly OPERATION_WRITE_OUTPUT = 'writeOutput' as const;
+
   private readonly errorHandler: ErrorHandlerService;
 
   constructor(errorHandler?: ErrorHandlerService) {
@@ -52,9 +57,15 @@ export class DockerfileGeneratorService {
       this.validateBuildConfig(config);
       this.validateArchitecture(architecture);
 
-      console.log(
-        `🔨 Generating Dockerfile for PHP ${config.phpVersion} on ${config.platform} (${architecture})`
-      );
+      logger.info('Generating Dockerfile', {
+        service: DockerfileGeneratorService.SERVICE_NAME,
+        operation: DockerfileGeneratorService.OPERATION_GENERATE_DOCKERFILE,
+        metadata: {
+          phpVersion: config.phpVersion,
+          platform: config.platform,
+          architecture,
+        },
+      });
 
       // Placeholder implementation - will be replaced with actual dockerfile-generator usage
       return this.generatePlaceholderDockerfile(config, architecture);
@@ -75,8 +86,15 @@ export class DockerfileGeneratorService {
       this.validateDockerfile(dockerfile);
       this.validateOutputPath(outputPath);
 
-      console.log(`📝 Writing Dockerfile to ${outputPath}`);
-      console.log('⚠️  File writing not yet implemented');
+      logger.info('Writing Dockerfile to output', {
+        service: DockerfileGeneratorService.SERVICE_NAME,
+        operation: DockerfileGeneratorService.OPERATION_WRITE_OUTPUT,
+        metadata: { outputPath },
+      });
+      logger.warn('File writing not yet implemented', {
+        service: DockerfileGeneratorService.SERVICE_NAME,
+        operation: DockerfileGeneratorService.OPERATION_WRITE_OUTPUT,
+      });
     } catch (error) {
       await this.errorHandler.handleError(error as Error, {
         operation: 'writeOutput',

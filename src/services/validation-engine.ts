@@ -6,6 +6,7 @@
 
 import type { BuildConfig } from '@/services';
 import { ErrorHandlerService } from './error-handler';
+import { logger } from './logger';
 import { ConfigLoaderError, ErrorType, ErrorSeverity } from '@/types';
 
 export class ValidationEngine {
@@ -28,7 +29,14 @@ export class ValidationEngine {
       // Validate input parameter
       this.validateInputConfig(config);
 
-      console.log(`✅ Validating configuration for PHP ${config.phpVersion} on ${config.platform}`);
+      logger.info('Validating configuration', {
+        service: 'validation-engine',
+        operation: 'validateConfig',
+        metadata: {
+          phpVersion: config.phpVersion,
+          platform: config.platform,
+        },
+      });
 
       // Placeholder validation - will be replaced with actual validation logic
       this.validateBasicConfig(config);
@@ -102,7 +110,10 @@ export class ValidationEngine {
       );
     }
 
-    console.log('✅ Basic configuration validation passed');
+    logger.info('Basic configuration validation passed', {
+      service: 'validation-engine',
+      operation: 'validateBasicConfig',
+    });
   }
 
   /**

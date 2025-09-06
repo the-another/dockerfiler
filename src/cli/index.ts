@@ -8,6 +8,7 @@ import { DeployManifestCommand } from '@/commands';
 import { TestLocalCommand } from '@/commands';
 import { ValidateConfigCommand } from '@/commands';
 import { PHPVersionTypeUtil, PlatformTypeUtil, ArchitectureTypeUtil } from '@/utils';
+import { logger } from '@/services';
 
 /**
  * CLI Entry Point
@@ -69,7 +70,15 @@ program
         outputPath: options.output,
       });
     } catch (error) {
-      console.error('Error generating Dockerfile:', error);
+      logger.error(
+        'Error generating Dockerfile',
+        {
+          service: 'cli',
+          operation: 'build:dockerfile',
+          metadata: { options },
+        },
+        error instanceof Error ? error : new Error(String(error))
+      );
       process.exit(1);
     }
   });
@@ -95,7 +104,15 @@ program
         push: options.push,
       });
     } catch (error) {
-      console.error('Error building image:', error);
+      logger.error(
+        'Error building image',
+        {
+          service: 'cli',
+          operation: 'build:image',
+          metadata: { options },
+        },
+        error instanceof Error ? error : new Error(String(error))
+      );
       process.exit(1);
     }
   });
@@ -122,7 +139,15 @@ program
         registry: options.registry,
       });
     } catch (error) {
-      console.error('Error deploying to hub:', error);
+      logger.error(
+        'Error deploying to hub',
+        {
+          service: 'cli',
+          operation: 'deploy:hub',
+          metadata: { options },
+        },
+        error instanceof Error ? error : new Error(String(error))
+      );
       process.exit(1);
     }
   });
@@ -148,7 +173,15 @@ program
         registry: options.registry,
       });
     } catch (error) {
-      console.error('Error deploying manifest:', error);
+      logger.error(
+        'Error deploying manifest',
+        {
+          service: 'cli',
+          operation: 'deploy:manifest',
+          metadata: { options },
+        },
+        error instanceof Error ? error : new Error(String(error))
+      );
       process.exit(1);
     }
   });
@@ -171,7 +204,15 @@ program
         outputPath: options.output,
       });
     } catch (error) {
-      console.error('Error testing locally:', error);
+      logger.error(
+        'Error testing locally',
+        {
+          service: 'cli',
+          operation: 'test:local',
+          metadata: { options },
+        },
+        error instanceof Error ? error : new Error(String(error))
+      );
       process.exit(1);
     }
   });
@@ -192,7 +233,15 @@ program
         outputPath: options.output,
       });
     } catch (error) {
-      console.error('Error validating config:', error);
+      logger.error(
+        'Error validating config',
+        {
+          service: 'cli',
+          operation: 'validate:config',
+          metadata: { options },
+        },
+        error instanceof Error ? error : new Error(String(error))
+      );
       process.exit(1);
     }
   });

@@ -1,4 +1,5 @@
 import type { Command } from '@/commands';
+import { logger } from '@/services';
 import { PHPVersion, Platform, Architecture } from '@/types';
 import { PHPVersionTypeUtil, PlatformTypeUtil, ArchitectureTypeUtil } from '@/utils';
 
@@ -10,18 +11,38 @@ export interface TestLocalArgs {
 }
 
 export class TestLocalCommand implements Command<TestLocalArgs, void> {
+  private static readonly SERVICE_NAME = 'test-local' as const;
+  private static readonly OPERATION_EXECUTE = 'execute' as const;
   async execute(args: TestLocalArgs): Promise<void> {
     try {
       // Validate arguments
       this.validateArgs(args);
 
       // TODO: Implement local testing logic
-      console.log(
-        `🧪 Testing PHP ${args.phpVersion} on ${args.platform} (${args.architecture}) locally`
-      );
-      console.log('⚠️  Local testing not yet implemented');
+      logger.info('Starting local testing', {
+        service: TestLocalCommand.SERVICE_NAME,
+        operation: TestLocalCommand.OPERATION_EXECUTE,
+        metadata: {
+          phpVersion: args.phpVersion,
+          platform: args.platform,
+          architecture: args.architecture,
+          outputPath: args.outputPath,
+        },
+      });
+      logger.warn('Local testing not yet implemented', {
+        service: TestLocalCommand.SERVICE_NAME,
+        operation: TestLocalCommand.OPERATION_EXECUTE,
+      });
     } catch (error) {
-      console.error('❌ Error testing locally:', error);
+      logger.error(
+        'Error testing locally',
+        {
+          service: TestLocalCommand.SERVICE_NAME,
+          operation: TestLocalCommand.OPERATION_EXECUTE,
+          metadata: { args },
+        },
+        error instanceof Error ? error : new Error(String(error))
+      );
       throw error;
     }
   }

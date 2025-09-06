@@ -1,4 +1,5 @@
 import type { Command } from '@/commands';
+import { logger } from '@/services';
 import { PHPVersion, Platform } from '@/types';
 import { PHPVersionTypeUtil, PlatformTypeUtil } from '@/utils';
 
@@ -9,16 +10,37 @@ export interface ValidateConfigArgs {
 }
 
 export class ValidateConfigCommand implements Command<ValidateConfigArgs, void> {
+  private static readonly SERVICE_NAME = 'validate-config' as const;
+  private static readonly OPERATION_EXECUTE = 'execute' as const;
   async execute(args: ValidateConfigArgs): Promise<void> {
     try {
       // Validate arguments
       this.validateArgs(args);
 
       // TODO: Implement configuration validation logic
-      console.log(`✅ Validating configuration for PHP ${args.phpVersion} on ${args.platform}`);
-      console.log('⚠️  Configuration validation not yet implemented');
+      logger.info('Starting configuration validation', {
+        service: ValidateConfigCommand.SERVICE_NAME,
+        operation: ValidateConfigCommand.OPERATION_EXECUTE,
+        metadata: {
+          phpVersion: args.phpVersion,
+          platform: args.platform,
+          outputPath: args.outputPath,
+        },
+      });
+      logger.warn('Configuration validation not yet implemented', {
+        service: ValidateConfigCommand.SERVICE_NAME,
+        operation: ValidateConfigCommand.OPERATION_EXECUTE,
+      });
     } catch (error) {
-      console.error('❌ Error validating config:', error);
+      logger.error(
+        'Error validating config',
+        {
+          service: ValidateConfigCommand.SERVICE_NAME,
+          operation: ValidateConfigCommand.OPERATION_EXECUTE,
+          metadata: { args },
+        },
+        error instanceof Error ? error : new Error(String(error))
+      );
       throw error;
     }
   }

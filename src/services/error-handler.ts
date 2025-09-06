@@ -10,6 +10,7 @@ import { ErrorType, ErrorSeverity } from '@/types/errors';
 import { ErrorRecoveryStrategy } from '@/types/services/error-handler';
 import type { ErrorHandlerOptions, ErrorClassification } from '@/types/services/error-handler';
 import { ErrorMessageService } from './error-message-service';
+import { logger } from './logger';
 
 /**
  * Error Handler Service
@@ -1060,6 +1061,27 @@ export class ErrorHandlerService {
     const userFriendlyMessage = ErrorMessageService.getMessageWithSeverity(error);
     const timestamp = error.timestamp.toISOString();
 
+    // Log structured error information for monitoring
+    logger.error(
+      'Error occurred and displayed to user',
+      {
+        service: 'error-handler',
+        operation: 'logUserFriendlyError',
+        metadata: {
+          errorType: error.type,
+          severity: classification.severity,
+          code: error.code,
+          recoverable: classification.recoverable,
+          retryable: classification.retryable,
+          maxRetries: classification.maxRetries,
+          retryDelay: classification.retryDelay,
+          timestamp,
+        },
+      },
+      error
+    );
+
+    // Display user-friendly error message to console
     console.error(`\n${userFriendlyMessage}`);
     console.error(`\nError Details:`);
     console.error(`  Type: ${error.type}`);

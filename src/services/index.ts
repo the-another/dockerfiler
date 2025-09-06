@@ -12,3 +12,9 @@ export { ValidationEngine } from './validation-engine';
 export { DockerBuildService, type DockerBuildOptions } from './docker-build';
 export { ErrorHandlerService } from './error-handler';
 export { ErrorMessageService } from './error-message-service';
+export { Logger, logger, createLogger } from './logger';
+export {
+  LogRotationService,
+  type LogRotationConfig,
+  DEFAULT_LOG_ROTATION_CONFIG,
+} from './log-rotation';

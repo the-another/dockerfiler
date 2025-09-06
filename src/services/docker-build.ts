@@ -6,6 +6,7 @@
 
 import type { BuildConfig } from '@/services';
 import { ErrorHandlerService } from './error-handler';
+import { logger } from './logger';
 import { ConfigLoaderError, ErrorType, ErrorSeverity } from '@/types';
 
 export interface DockerBuildOptions {
@@ -16,6 +17,10 @@ export interface DockerBuildOptions {
 }
 
 export class DockerBuildService {
+  private static readonly SERVICE_NAME = 'docker-build' as const;
+  private static readonly OPERATION_BUILD_IMAGE = 'buildImage' as const;
+  private static readonly OPERATION_PUSH_IMAGE = 'pushImage' as const;
+
   private readonly errorHandler: ErrorHandlerService;
 
   constructor(errorHandler?: ErrorHandlerService) {
@@ -35,14 +40,24 @@ export class DockerBuildService {
       // Validate input parameters
       this.validateBuildOptions(options);
 
-      console.log(
-        `🐳 Building Docker image for PHP ${options.config.phpVersion} on ${options.config.platform} (${options.architecture})`
-      );
+      logger.info('Building Docker image', {
+        service: DockerBuildService.SERVICE_NAME,
+        operation: DockerBuildService.OPERATION_BUILD_IMAGE,
+        metadata: {
+          phpVersion: options.config.phpVersion,
+          platform: options.config.platform,
+          architecture: options.architecture,
+          tag: options.tag,
+        },
+      });
 
       // Placeholder implementation - will be replaced with actual Docker build logic
       const imageId = this.generatePlaceholderImageId(options);
 
-      console.log('⚠️  Docker build not yet implemented');
+      logger.warn('Docker build not yet implemented', {
+        service: DockerBuildService.SERVICE_NAME,
+        operation: DockerBuildService.OPERATION_BUILD_IMAGE,
+      });
       return imageId;
     } catch (error) {
       await this.errorHandler.handleError(error as Error, {
@@ -62,8 +77,15 @@ export class DockerBuildService {
       this.validateImageId(imageId);
       this.validateTag(tag);
 
-      console.log(`📤 Pushing Docker image ${imageId} with tag ${tag}`);
-      console.log('⚠️  Docker push not yet implemented');
+      logger.info('Pushing Docker image', {
+        service: DockerBuildService.SERVICE_NAME,
+        operation: DockerBuildService.OPERATION_PUSH_IMAGE,
+        metadata: { imageId, tag },
+      });
+      logger.warn('Docker push not yet implemented', {
+        service: DockerBuildService.SERVICE_NAME,
+        operation: DockerBuildService.OPERATION_PUSH_IMAGE,
+      });
     } catch (error) {
       await this.errorHandler.handleError(error as Error, {
         operation: 'pushImage',

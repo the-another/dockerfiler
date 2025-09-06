@@ -1,4 +1,5 @@
 import type { Command } from '@/commands';
+import { logger } from '@/services';
 import { PHPVersion, Platform } from '@/types';
 import { PHPVersionTypeUtil, PlatformTypeUtil } from '@/utils';
 
@@ -12,18 +13,38 @@ export interface DeployManifestArgs {
 }
 
 export class DeployManifestCommand implements Command<DeployManifestArgs, void> {
+  private static readonly SERVICE_NAME = 'deploy-manifest' as const;
+  private static readonly OPERATION_EXECUTE = 'execute' as const;
   async execute(args: DeployManifestArgs): Promise<void> {
     try {
       // Validate arguments
       this.validateArgs(args);
 
       // TODO: Implement manifest creation and deployment logic
-      console.log(
-        `🚀 Creating multi-architecture manifest for PHP ${args.phpVersion} on ${args.platform} with tag: ${args.tag}`
-      );
-      console.log('⚠️  Manifest deployment not yet implemented');
+      logger.info('Starting manifest deployment', {
+        service: DeployManifestCommand.SERVICE_NAME,
+        operation: DeployManifestCommand.OPERATION_EXECUTE,
+        metadata: {
+          phpVersion: args.phpVersion,
+          platform: args.platform,
+          tag: args.tag,
+          registry: args.registry,
+        },
+      });
+      logger.warn('Manifest deployment not yet implemented', {
+        service: DeployManifestCommand.SERVICE_NAME,
+        operation: DeployManifestCommand.OPERATION_EXECUTE,
+      });
     } catch (error) {
-      console.error('❌ Error deploying manifest:', error);
+      logger.error(
+        'Error deploying manifest',
+        {
+          service: DeployManifestCommand.SERVICE_NAME,
+          operation: DeployManifestCommand.OPERATION_EXECUTE,
+          metadata: { args },
+        },
+        error instanceof Error ? error : new Error(String(error))
+      );
       throw error;
     }
   }

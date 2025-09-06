@@ -7,6 +7,7 @@
 
 import type { BuildConfig } from '@/services';
 import { ErrorHandlerService } from './error-handler';
+import { logger } from './logger';
 import { ConfigLoaderError, ErrorType, ErrorSeverity } from '@/types';
 
 export class ConfigManager {
@@ -29,7 +30,11 @@ export class ConfigManager {
       // Validate input parameters
       this.validateInputs(phpVersion, platform);
 
-      console.log(`📋 Loading configuration for PHP ${phpVersion} on ${platform}`);
+      logger.info('Loading configuration', {
+        service: 'config-manager',
+        operation: 'loadConfig',
+        metadata: { phpVersion, platform },
+      });
 
       // Placeholder configuration - will be replaced with actual config loading
       return this.getPlaceholderConfig(phpVersion, platform);

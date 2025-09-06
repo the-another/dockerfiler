@@ -2,6 +2,7 @@ import type { Command } from '@/commands';
 import { DockerfileGeneratorService } from '@/services';
 import { ConfigManager } from '@/services';
 import { ValidationEngine } from '@/services';
+import { logger } from '@/services';
 import { PHPVersion, Platform, Architecture } from '@/types';
 import { PHPVersionTypeUtil, PlatformTypeUtil, ArchitectureTypeUtil } from '@/utils';
 
@@ -43,12 +44,26 @@ export class BuildDockerfileCommand implements Command<BuildDockerfileArgs, void
       // Write output
       await this.dockerfileGenerator.writeOutput(dockerfile, args.outputPath);
 
-      console.log(
-        `✅ Dockerfile generated successfully for PHP ${args.phpVersion} on ${args.platform} (${args.architecture})`
-      );
-      console.log(`📁 Output written to: ${args.outputPath}`);
+      logger.info('Dockerfile generated successfully', {
+        service: 'build-dockerfile',
+        operation: 'execute',
+        metadata: {
+          phpVersion: args.phpVersion,
+          platform: args.platform,
+          architecture: args.architecture,
+          outputPath: args.outputPath,
+        },
+      });
     } catch (error) {
-      console.error('❌ Error generating Dockerfile:', error);
+      logger.error(
+        'Error generating Dockerfile',
+        {
+          service: 'build-dockerfile',
+          operation: 'execute',
+          metadata: { args },
+        },
+        error instanceof Error ? error : new Error(String(error))
+      );
       throw error;
     }
   }
