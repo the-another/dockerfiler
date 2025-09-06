@@ -10,6 +10,9 @@ import { ConfigLoaderError, ErrorType, ErrorSeverity } from '@/types';
 import type { BaseConfig, FinalConfig, PlatformConfig } from '@/types';
 import { baseConfigSchema, finalConfigSchema, platformConfigSchema } from '@/validators';
 
+// Constants for repeated string literals
+const CONFIG_TYPE_SUGGESTIONS = ['Use one of: base, platform, final'];
+
 /**
  * Configuration type for validation schemas
  */
@@ -62,7 +65,7 @@ export class ConfigValidator {
           `Unknown configuration type: ${configType}`,
           ErrorSeverity.HIGH,
           { configType },
-          ['Use one of: base, platform, final']
+          CONFIG_TYPE_SUGGESTIONS
         );
       }
 
@@ -258,7 +261,7 @@ export class ConfigValidator {
           `Unknown configuration type: ${configType}`,
           ErrorSeverity.HIGH,
           { configType },
-          ['Use one of: base, platform, final']
+          CONFIG_TYPE_SUGGESTIONS
         );
       }
 

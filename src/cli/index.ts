@@ -16,6 +16,32 @@ import { PHPVersionTypeUtil, PlatformTypeUtil, ArchitectureTypeUtil } from '@/ut
  * Uses Commander.js for robust command-line argument parsing and routing.
  */
 
+// Constants for repeated string literals
+const PHP_VERSION_HELP = PHPVersionTypeUtil.getPHPVersionHelpText();
+const PLATFORM_HELP = PlatformTypeUtil.getPlatformHelpText();
+const ARCHITECTURE_HELP = ArchitectureTypeUtil.getArchitectureHelpText();
+const DEFAULT_OUTPUT_PATH = './output';
+const DEFAULT_ARCHITECTURE = 'all';
+const DEFAULT_TAG = 'latest';
+const DEFAULT_REGISTRY = 'docker.io';
+
+// Constants for option descriptions
+const OUTPUT_PATH_DESCRIPTION = 'Output directory path';
+const IMAGE_TAG_DESCRIPTION = 'Image tag';
+const DOCKER_HUB_USERNAME_DESCRIPTION = 'Docker Hub username';
+const DOCKER_HUB_PASSWORD_DESCRIPTION = 'Docker Hub password/token';
+const DOCKER_REGISTRY_DESCRIPTION = 'Docker registry URL';
+
+// Constants for option names
+const PHP_OPTION = '--php <version>';
+const PLATFORM_OPTION = '--platform <platform>';
+const ARCH_OPTION = '--arch <architecture>';
+const OUTPUT_OPTION = '--output <path>';
+const TAG_OPTION = '--tag <tag>';
+const USERNAME_OPTION = '--username <username>';
+const PASSWORD_OPTION = '--password <password>';
+const REGISTRY_OPTION = '--registry <registry>';
+
 const program = new Command();
 
 program
@@ -29,10 +55,10 @@ program
 program
   .command('build:dockerfile')
   .description('Generate Dockerfile for specified configuration')
-  .requiredOption('--php <version>', PHPVersionTypeUtil.getPHPVersionHelpText())
-  .requiredOption('--platform <platform>', PlatformTypeUtil.getPlatformHelpText())
-  .option('--arch <architecture>', ArchitectureTypeUtil.getArchitectureHelpText(), 'all')
-  .option('--output <path>', 'Output directory path', './output')
+  .requiredOption(PHP_OPTION, PHP_VERSION_HELP)
+  .requiredOption(PLATFORM_OPTION, PLATFORM_HELP)
+  .option(ARCH_OPTION, ARCHITECTURE_HELP, DEFAULT_ARCHITECTURE)
+  .option(OUTPUT_OPTION, OUTPUT_PATH_DESCRIPTION, DEFAULT_OUTPUT_PATH)
   .action(async options => {
     try {
       const command = new BuildDockerfileCommand();
@@ -51,11 +77,11 @@ program
 program
   .command('build:image')
   .description('Build Docker image for specified configuration')
-  .requiredOption('--php <version>', PHPVersionTypeUtil.getPHPVersionHelpText())
-  .requiredOption('--platform <platform>', PlatformTypeUtil.getPlatformHelpText())
-  .option('--arch <architecture>', ArchitectureTypeUtil.getArchitectureHelpText(), 'all')
-  .option('--tag <tag>', 'Image tag', 'latest')
-  .option('--output <path>', 'Output directory path', './output')
+  .requiredOption(PHP_OPTION, PHP_VERSION_HELP)
+  .requiredOption(PLATFORM_OPTION, PLATFORM_HELP)
+  .option(ARCH_OPTION, ARCHITECTURE_HELP, DEFAULT_ARCHITECTURE)
+  .option(TAG_OPTION, IMAGE_TAG_DESCRIPTION, DEFAULT_TAG)
+  .option(OUTPUT_OPTION, OUTPUT_PATH_DESCRIPTION, DEFAULT_OUTPUT_PATH)
   .option('--push', 'Push image to registry after build', false)
   .action(async options => {
     try {
@@ -78,12 +104,12 @@ program
 program
   .command('deploy:hub')
   .description('Deploy image to Docker Hub')
-  .requiredOption('--php <version>', PHPVersionTypeUtil.getPHPVersionHelpText())
-  .requiredOption('--platform <platform>', PlatformTypeUtil.getPlatformHelpText())
-  .requiredOption('--tag <tag>', 'Image tag')
-  .option('--username <username>', 'Docker Hub username')
-  .option('--password <password>', 'Docker Hub password/token')
-  .option('--registry <registry>', 'Docker registry URL', 'docker.io')
+  .requiredOption(PHP_OPTION, PHP_VERSION_HELP)
+  .requiredOption(PLATFORM_OPTION, PLATFORM_HELP)
+  .requiredOption(TAG_OPTION, IMAGE_TAG_DESCRIPTION)
+  .option(USERNAME_OPTION, DOCKER_HUB_USERNAME_DESCRIPTION)
+  .option(PASSWORD_OPTION, DOCKER_HUB_PASSWORD_DESCRIPTION)
+  .option(REGISTRY_OPTION, DOCKER_REGISTRY_DESCRIPTION, DEFAULT_REGISTRY)
   .action(async options => {
     try {
       const command = new DeployHubCommand();
@@ -104,12 +130,12 @@ program
 program
   .command('deploy:manifest')
   .description('Create and deploy multi-architecture manifest')
-  .requiredOption('--php <version>', PHPVersionTypeUtil.getPHPVersionHelpText())
-  .requiredOption('--platform <platform>', PlatformTypeUtil.getPlatformHelpText())
-  .requiredOption('--tag <tag>', 'Image tag')
-  .option('--username <username>', 'Docker Hub username')
-  .option('--password <password>', 'Docker Hub password/token')
-  .option('--registry <registry>', 'Docker registry URL', 'docker.io')
+  .requiredOption(PHP_OPTION, PHP_VERSION_HELP)
+  .requiredOption(PLATFORM_OPTION, PLATFORM_HELP)
+  .requiredOption(TAG_OPTION, IMAGE_TAG_DESCRIPTION)
+  .option(USERNAME_OPTION, DOCKER_HUB_USERNAME_DESCRIPTION)
+  .option(PASSWORD_OPTION, DOCKER_HUB_PASSWORD_DESCRIPTION)
+  .option(REGISTRY_OPTION, DOCKER_REGISTRY_DESCRIPTION, DEFAULT_REGISTRY)
   .action(async options => {
     try {
       const command = new DeployManifestCommand();
@@ -131,10 +157,10 @@ program
 program
   .command('test:local')
   .description('Test generated configuration locally')
-  .requiredOption('--php <version>', PHPVersionTypeUtil.getPHPVersionHelpText())
-  .requiredOption('--platform <platform>', PlatformTypeUtil.getPlatformHelpText())
-  .option('--arch <architecture>', ArchitectureTypeUtil.getArchitectureHelpText(), 'all')
-  .option('--output <path>', 'Output directory path', './output')
+  .requiredOption(PHP_OPTION, PHP_VERSION_HELP)
+  .requiredOption(PLATFORM_OPTION, PLATFORM_HELP)
+  .option(ARCH_OPTION, ARCHITECTURE_HELP, DEFAULT_ARCHITECTURE)
+  .option(OUTPUT_OPTION, OUTPUT_PATH_DESCRIPTION, DEFAULT_OUTPUT_PATH)
   .action(async options => {
     try {
       const command = new TestLocalCommand();
@@ -154,9 +180,9 @@ program
 program
   .command('validate:config')
   .description('Validate configuration for specified setup')
-  .requiredOption('--php <version>', PHPVersionTypeUtil.getPHPVersionHelpText())
-  .requiredOption('--platform <platform>', PlatformTypeUtil.getPlatformHelpText())
-  .option('--output <path>', 'Output directory path', './output')
+  .requiredOption(PHP_OPTION, PHP_VERSION_HELP)
+  .requiredOption(PLATFORM_OPTION, PLATFORM_HELP)
+  .option(OUTPUT_OPTION, OUTPUT_PATH_DESCRIPTION, DEFAULT_OUTPUT_PATH)
   .action(async options => {
     try {
       const command = new ValidateConfigCommand();
