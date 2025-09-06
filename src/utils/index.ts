@@ -1,15 +1,9 @@
 /**
  * Utils Module
  *
- * This module will contain utility functions.
- * Utilities will be implemented throughout the development phases.
+ * This module contains utility functions for the Dockerfile Generator CLI.
  */
 
-// TODO: Implement utility functions as needed
-// - File system utilities
-// - Validation utilities
-// - Security utilities
-// - Performance utilities
-// - Docker utilities
-
-export {};
+export * from './php-version-util';
+export * from './platform-util';
+export * from './architecture-util';

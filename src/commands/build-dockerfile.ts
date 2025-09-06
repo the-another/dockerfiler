@@ -2,7 +2,8 @@ import type { Command } from './index.js';
 import { DockerfileGeneratorService } from '@/services';
 import { ConfigManager } from '@/services';
 import { ValidationEngine } from '@/services';
-import { PHPVersion, Platform, Architecture, EnumUtils } from '@/types';
+import { PHPVersion, Platform, Architecture } from '@/types';
+import { PHPVersionTypeUtil, PlatformTypeUtil, ArchitectureTypeUtil } from '@/utils';
 
 export interface BuildDockerfileArgs {
   phpVersion: PHPVersion;
@@ -54,23 +55,23 @@ export class BuildDockerfileCommand implements Command<BuildDockerfileArgs, void
 
   validateArgs(args: BuildDockerfileArgs): void {
     // Validate PHP version using enum validation
-    if (!EnumUtils.isValidPHPVersion(args.phpVersion)) {
+    if (!PHPVersionTypeUtil.isValidPHPVersion(args.phpVersion)) {
       throw new Error(
-        `Invalid PHP version: ${args.phpVersion}. Supported versions: ${EnumUtils.getAllPHPVersions().join(', ')}`
+        `Invalid PHP version: ${args.phpVersion}. Supported versions: ${PHPVersionTypeUtil.getAllPHPVersions().join(', ')}`
       );
     }
 
     // Validate platform using enum validation
-    if (!EnumUtils.isValidPlatform(args.platform)) {
+    if (!PlatformTypeUtil.isValidPlatform(args.platform)) {
       throw new Error(
-        `Invalid platform: ${args.platform}. Supported platforms: ${EnumUtils.getAllPlatforms().join(', ')}`
+        `Invalid platform: ${args.platform}. Supported platforms: ${PlatformTypeUtil.getAllPlatforms().join(', ')}`
       );
     }
 
     // Validate architecture using enum validation
-    if (!EnumUtils.isValidArchitecture(args.architecture)) {
+    if (!ArchitectureTypeUtil.isValidArchitecture(args.architecture)) {
       throw new Error(
-        `Invalid architecture: ${args.architecture}. Supported architectures: ${EnumUtils.getAllArchitectures().join(', ')}`
+        `Invalid architecture: ${args.architecture}. Supported architectures: ${ArchitectureTypeUtil.getAllArchitectures().join(', ')}`
       );
     }
 
@@ -90,11 +91,11 @@ Usage:
   dockerfile-generator build:dockerfile --php <version> --platform <platform> [options]
 
 Required Options:
-  --php <version>        ${EnumUtils.getPHPVersionHelpText()}
-  --platform <platform>  ${EnumUtils.getPlatformHelpText()}
+  --php <version>        ${PHPVersionTypeUtil.getPHPVersionHelpText()}
+  --platform <platform>  ${PlatformTypeUtil.getPlatformHelpText()}
 
 Optional Options:
-  --arch <architecture>  ${EnumUtils.getArchitectureHelpText()} [default: all]
+  --arch <architecture>  ${ArchitectureTypeUtil.getArchitectureHelpText()} [default: all]
   --output <path>        Output directory path [default: ./output]
 
 Examples:

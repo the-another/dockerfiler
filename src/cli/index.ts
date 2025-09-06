@@ -7,7 +7,7 @@ import { DeployHubCommand } from '@/commands';
 import { DeployManifestCommand } from '@/commands';
 import { TestLocalCommand } from '@/commands';
 import { ValidateConfigCommand } from '@/commands';
-import { EnumUtils } from '@/types';
+import { PHPVersionTypeUtil, PlatformTypeUtil, ArchitectureTypeUtil } from '@/utils';
 
 /**
  * CLI Entry Point
@@ -29,17 +29,17 @@ program
 program
   .command('build:dockerfile')
   .description('Generate Dockerfile for specified configuration')
-  .requiredOption('--php <version>', EnumUtils.getPHPVersionHelpText())
-  .requiredOption('--platform <platform>', EnumUtils.getPlatformHelpText())
-  .option('--arch <architecture>', EnumUtils.getArchitectureHelpText(), 'all')
+  .requiredOption('--php <version>', PHPVersionTypeUtil.getPHPVersionHelpText())
+  .requiredOption('--platform <platform>', PlatformTypeUtil.getPlatformHelpText())
+  .option('--arch <architecture>', ArchitectureTypeUtil.getArchitectureHelpText(), 'all')
   .option('--output <path>', 'Output directory path', './output')
   .action(async options => {
     try {
       const command = new BuildDockerfileCommand();
       await command.execute({
-        phpVersion: EnumUtils.toPHPVersion(options.php),
-        platform: EnumUtils.toPlatform(options.platform),
-        architecture: EnumUtils.toArchitecture(options.arch),
+        phpVersion: PHPVersionTypeUtil.toPHPVersion(options.php),
+        platform: PlatformTypeUtil.toPlatform(options.platform),
+        architecture: ArchitectureTypeUtil.toArchitecture(options.arch),
         outputPath: options.output,
       });
     } catch (error) {
@@ -51,9 +51,9 @@ program
 program
   .command('build:image')
   .description('Build Docker image for specified configuration')
-  .requiredOption('--php <version>', EnumUtils.getPHPVersionHelpText())
-  .requiredOption('--platform <platform>', EnumUtils.getPlatformHelpText())
-  .option('--arch <architecture>', EnumUtils.getArchitectureHelpText(), 'all')
+  .requiredOption('--php <version>', PHPVersionTypeUtil.getPHPVersionHelpText())
+  .requiredOption('--platform <platform>', PlatformTypeUtil.getPlatformHelpText())
+  .option('--arch <architecture>', ArchitectureTypeUtil.getArchitectureHelpText(), 'all')
   .option('--tag <tag>', 'Image tag', 'latest')
   .option('--output <path>', 'Output directory path', './output')
   .option('--push', 'Push image to registry after build', false)
@@ -61,9 +61,9 @@ program
     try {
       const command = new BuildImageCommand();
       await command.execute({
-        phpVersion: EnumUtils.toPHPVersion(options.php),
-        platform: EnumUtils.toPlatform(options.platform),
-        architecture: EnumUtils.toArchitecture(options.arch),
+        phpVersion: PHPVersionTypeUtil.toPHPVersion(options.php),
+        platform: PlatformTypeUtil.toPlatform(options.platform),
+        architecture: ArchitectureTypeUtil.toArchitecture(options.arch),
         tag: options.tag,
         outputPath: options.output,
         push: options.push,
@@ -78,8 +78,8 @@ program
 program
   .command('deploy:hub')
   .description('Deploy image to Docker Hub')
-  .requiredOption('--php <version>', EnumUtils.getPHPVersionHelpText())
-  .requiredOption('--platform <platform>', EnumUtils.getPlatformHelpText())
+  .requiredOption('--php <version>', PHPVersionTypeUtil.getPHPVersionHelpText())
+  .requiredOption('--platform <platform>', PlatformTypeUtil.getPlatformHelpText())
   .requiredOption('--tag <tag>', 'Image tag')
   .option('--username <username>', 'Docker Hub username')
   .option('--password <password>', 'Docker Hub password/token')
@@ -88,8 +88,8 @@ program
     try {
       const command = new DeployHubCommand();
       await command.execute({
-        phpVersion: EnumUtils.toPHPVersion(options.php),
-        platform: EnumUtils.toPlatform(options.platform),
+        phpVersion: PHPVersionTypeUtil.toPHPVersion(options.php),
+        platform: PlatformTypeUtil.toPlatform(options.platform),
         tag: options.tag,
         username: options.username,
         password: options.password,
@@ -104,8 +104,8 @@ program
 program
   .command('deploy:manifest')
   .description('Create and deploy multi-architecture manifest')
-  .requiredOption('--php <version>', EnumUtils.getPHPVersionHelpText())
-  .requiredOption('--platform <platform>', EnumUtils.getPlatformHelpText())
+  .requiredOption('--php <version>', PHPVersionTypeUtil.getPHPVersionHelpText())
+  .requiredOption('--platform <platform>', PlatformTypeUtil.getPlatformHelpText())
   .requiredOption('--tag <tag>', 'Image tag')
   .option('--username <username>', 'Docker Hub username')
   .option('--password <password>', 'Docker Hub password/token')
@@ -114,8 +114,8 @@ program
     try {
       const command = new DeployManifestCommand();
       await command.execute({
-        phpVersion: EnumUtils.toPHPVersion(options.php),
-        platform: EnumUtils.toPlatform(options.platform),
+        phpVersion: PHPVersionTypeUtil.toPHPVersion(options.php),
+        platform: PlatformTypeUtil.toPlatform(options.platform),
         tag: options.tag,
         username: options.username,
         password: options.password,
@@ -131,17 +131,17 @@ program
 program
   .command('test:local')
   .description('Test generated configuration locally')
-  .requiredOption('--php <version>', EnumUtils.getPHPVersionHelpText())
-  .requiredOption('--platform <platform>', EnumUtils.getPlatformHelpText())
-  .option('--arch <architecture>', EnumUtils.getArchitectureHelpText(), 'all')
+  .requiredOption('--php <version>', PHPVersionTypeUtil.getPHPVersionHelpText())
+  .requiredOption('--platform <platform>', PlatformTypeUtil.getPlatformHelpText())
+  .option('--arch <architecture>', ArchitectureTypeUtil.getArchitectureHelpText(), 'all')
   .option('--output <path>', 'Output directory path', './output')
   .action(async options => {
     try {
       const command = new TestLocalCommand();
       await command.execute({
-        phpVersion: EnumUtils.toPHPVersion(options.php),
-        platform: EnumUtils.toPlatform(options.platform),
-        architecture: EnumUtils.toArchitecture(options.arch),
+        phpVersion: PHPVersionTypeUtil.toPHPVersion(options.php),
+        platform: PlatformTypeUtil.toPlatform(options.platform),
+        architecture: ArchitectureTypeUtil.toArchitecture(options.arch),
         outputPath: options.output,
       });
     } catch (error) {
@@ -154,15 +154,15 @@ program
 program
   .command('validate:config')
   .description('Validate configuration for specified setup')
-  .requiredOption('--php <version>', EnumUtils.getPHPVersionHelpText())
-  .requiredOption('--platform <platform>', EnumUtils.getPlatformHelpText())
+  .requiredOption('--php <version>', PHPVersionTypeUtil.getPHPVersionHelpText())
+  .requiredOption('--platform <platform>', PlatformTypeUtil.getPlatformHelpText())
   .option('--output <path>', 'Output directory path', './output')
   .action(async options => {
     try {
       const command = new ValidateConfigCommand();
       await command.execute({
-        phpVersion: EnumUtils.toPHPVersion(options.php),
-        platform: EnumUtils.toPlatform(options.platform),
+        phpVersion: PHPVersionTypeUtil.toPHPVersion(options.php),
+        platform: PlatformTypeUtil.toPlatform(options.platform),
         outputPath: options.output,
       });
     } catch (error) {

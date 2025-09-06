@@ -1,5 +1,6 @@
 import type { Command } from './index.js';
-import { PHPVersion, Platform, EnumUtils } from '@/types';
+import { PHPVersion, Platform } from '@/types';
+import { PHPVersionTypeUtil, PlatformTypeUtil } from '@/utils';
 
 export interface ValidateConfigArgs {
   phpVersion: PHPVersion;
@@ -24,16 +25,16 @@ export class ValidateConfigCommand implements Command<ValidateConfigArgs, void> 
 
   validateArgs(args: ValidateConfigArgs): void {
     // Validate PHP version using enum validation
-    if (!EnumUtils.isValidPHPVersion(args.phpVersion)) {
+    if (!PHPVersionTypeUtil.isValidPHPVersion(args.phpVersion)) {
       throw new Error(
-        `Invalid PHP version: ${args.phpVersion}. Supported versions: ${EnumUtils.getAllPHPVersions().join(', ')}`
+        `Invalid PHP version: ${args.phpVersion}. Supported versions: ${PHPVersionTypeUtil.getAllPHPVersions().join(', ')}`
       );
     }
 
     // Validate platform using enum validation
-    if (!EnumUtils.isValidPlatform(args.platform)) {
+    if (!PlatformTypeUtil.isValidPlatform(args.platform)) {
       throw new Error(
-        `Invalid platform: ${args.platform}. Supported platforms: ${EnumUtils.getAllPlatforms().join(', ')}`
+        `Invalid platform: ${args.platform}. Supported platforms: ${PlatformTypeUtil.getAllPlatforms().join(', ')}`
       );
     }
 
@@ -53,8 +54,8 @@ Usage:
   dockerfile-generator validate:config --php <version> --platform <platform> [options]
 
 Required Options:
-  --php <version>        ${EnumUtils.getPHPVersionHelpText()}
-  --platform <platform>  ${EnumUtils.getPlatformHelpText()}
+  --php <version>        ${PHPVersionTypeUtil.getPHPVersionHelpText()}
+  --platform <platform>  ${PlatformTypeUtil.getPlatformHelpText()}
 
 Optional Options:
   --output <path>        Output directory path [default: ./output]

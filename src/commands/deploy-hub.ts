@@ -1,5 +1,6 @@
 import type { Command } from './index.js';
-import { PHPVersion, Platform, EnumUtils } from '@/types';
+import { PHPVersion, Platform } from '@/types';
+import { PHPVersionTypeUtil, PlatformTypeUtil } from '@/utils';
 
 export interface DeployHubArgs {
   phpVersion: PHPVersion;
@@ -29,16 +30,16 @@ export class DeployHubCommand implements Command<DeployHubArgs, void> {
 
   validateArgs(args: DeployHubArgs): void {
     // Validate PHP version using enum validation
-    if (!EnumUtils.isValidPHPVersion(args.phpVersion)) {
+    if (!PHPVersionTypeUtil.isValidPHPVersion(args.phpVersion)) {
       throw new Error(
-        `Invalid PHP version: ${args.phpVersion}. Supported versions: ${EnumUtils.getAllPHPVersions().join(', ')}`
+        `Invalid PHP version: ${args.phpVersion}. Supported versions: ${PHPVersionTypeUtil.getAllPHPVersions().join(', ')}`
       );
     }
 
     // Validate platform using enum validation
-    if (!EnumUtils.isValidPlatform(args.platform)) {
+    if (!PlatformTypeUtil.isValidPlatform(args.platform)) {
       throw new Error(
-        `Invalid platform: ${args.platform}. Supported platforms: ${EnumUtils.getAllPlatforms().join(', ')}`
+        `Invalid platform: ${args.platform}. Supported platforms: ${PlatformTypeUtil.getAllPlatforms().join(', ')}`
       );
     }
 
@@ -63,8 +64,8 @@ Usage:
   dockerfile-generator deploy:hub --php <version> --platform <platform> --tag <tag> [options]
 
 Required Options:
-  --php <version>        ${EnumUtils.getPHPVersionHelpText()}
-  --platform <platform>  ${EnumUtils.getPlatformHelpText()}
+  --php <version>        ${PHPVersionTypeUtil.getPHPVersionHelpText()}
+  --platform <platform>  ${PlatformTypeUtil.getPlatformHelpText()}
   --tag <tag>            Image tag
 
 Optional Options:
