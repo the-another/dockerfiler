@@ -125,9 +125,10 @@ describe('Final Configuration Validator', () => {
     it('should require architecture field', () => {
       // Test requires architecture field to be present
       const config = createValidFinalConfig();
-      delete (config as any).architecture;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { architecture: _, ...configWithoutArchitecture } = config;
 
-      const result = finalConfigSchema.validate(config);
+      const result = finalConfigSchema.validate(configWithoutArchitecture);
 
       expect(result.error).toBeDefined();
       expect(result.error!.message).toContain('architecture is required');
@@ -387,9 +388,9 @@ describe('Final Configuration Validator', () => {
         ...createValidFinalConfig(),
         build: {
           baseImage: 'alpine:3.18',
-          useCache: 123 as any,
+          useCache: 123,
         },
-      };
+      } as unknown as ReturnType<typeof createValidFinalConfig>;
 
       const result = finalConfigSchema.validate(config);
 
@@ -448,9 +449,10 @@ describe('Final Configuration Validator', () => {
     it('should require build configuration', () => {
       // Test requires build configuration to be present
       const config = createValidFinalConfig();
-      delete (config as any).build;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { build: _, ...configWithoutBuild } = config;
 
-      const result = finalConfigSchema.validate(config);
+      const result = finalConfigSchema.validate(configWithoutBuild);
 
       expect(result.error).toBeDefined();
       expect(result.error!.message).toContain('is required');
@@ -460,8 +462,8 @@ describe('Final Configuration Validator', () => {
       // Test validates platform configuration through platform schema
       const config = {
         ...createValidFinalConfig(),
-        platform: 'invalid' as any,
-      };
+        platform: 'invalid',
+      } as unknown as ReturnType<typeof createValidFinalConfig>;
 
       const result = finalConfigSchema.validate(config);
 

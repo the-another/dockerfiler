@@ -167,9 +167,10 @@ describe('Platform Configuration Validator', () => {
     it('should require platform field', () => {
       // Test requires platform field to be present
       const config = createValidAlpineConfig();
-      delete (config as any).platform;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { platform: _, ...configWithoutPlatform } = config;
 
-      const result = platformConfigSchema.validate(config);
+      const result = platformConfigSchema.validate(configWithoutPlatform);
 
       expect(result.error).toBeDefined();
       expect(result.error!.message).toContain('Platform is required');
@@ -178,9 +179,10 @@ describe('Platform Configuration Validator', () => {
     it('should require platformSpecific field', () => {
       // Test requires platformSpecific field to be present
       const config = createValidAlpineConfig();
-      delete (config as any).platformSpecific;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { platformSpecific: _, ...configWithoutPlatformSpecific } = config;
 
-      const result = platformConfigSchema.validate(config);
+      const result = platformConfigSchema.validate(configWithoutPlatformSpecific);
 
       expect(result.error).toBeDefined();
       expect(result.error!.message).toContain('platformSpecific is required');

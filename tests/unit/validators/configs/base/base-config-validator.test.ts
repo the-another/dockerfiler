@@ -160,9 +160,10 @@ describe('Base Configuration Validator', () => {
     it('should require all service configurations', () => {
       // Test requires all service configurations to be present
       const config = createValidBaseConfig();
-      delete (config as any).php;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { php: _, ...configWithoutPhp } = config;
 
-      const result = baseConfigSchema.validate(config);
+      const result = baseConfigSchema.validate(configWithoutPhp);
 
       expect(result.error).toBeDefined();
       expect(result.error!.message).toContain('required');
@@ -175,9 +176,9 @@ describe('Base Configuration Validator', () => {
         ...baseConfig,
         php: {
           ...baseConfig.php,
-          version: 'invalid' as any,
+          version: 'invalid',
         },
-      };
+      } as unknown as ReturnType<typeof createValidBaseConfig>;
 
       const result = baseConfigSchema.validate(config);
 

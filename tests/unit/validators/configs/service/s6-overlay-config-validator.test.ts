@@ -59,9 +59,10 @@ describe('s6-overlay Configuration Validator', () => {
     it('should require services field', () => {
       // Test requires services field to be present
       const config = createValidS6OverlayConfig();
-      delete (config as any).services;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { services: _, ...configWithoutServices } = config;
 
-      const result = s6OverlayConfigSchema.validate(config);
+      const result = s6OverlayConfigSchema.validate(configWithoutServices);
 
       expect(result.error).toBeDefined();
       expect(result.error!.message).toContain('services are required');
@@ -152,9 +153,10 @@ describe('s6-overlay Configuration Validator', () => {
     it('should require crontab field', () => {
       // Test requires crontab field to be present
       const config = createValidS6OverlayConfig();
-      delete (config as any).crontab;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { crontab: _, ...configWithoutCrontab } = config;
 
-      const result = s6OverlayConfigSchema.validate(config);
+      const result = s6OverlayConfigSchema.validate(configWithoutCrontab);
 
       expect(result.error).toBeDefined();
       expect(result.error!.message).toContain('crontab is required');
@@ -279,9 +281,9 @@ describe('s6-overlay Configuration Validator', () => {
         const config = {
           ...createValidS6OverlayConfig(),
           options: {
-            logging: 123 as any,
+            logging: 123,
           },
-        };
+        } as unknown as ReturnType<typeof createValidS6OverlayConfig>;
 
         const result = s6OverlayConfigSchema.validate(config);
 
@@ -349,9 +351,9 @@ describe('s6-overlay Configuration Validator', () => {
         const config = {
           ...createValidS6OverlayConfig(),
           options: {
-            notifications: 456 as any,
+            notifications: 456,
           },
-        };
+        } as unknown as ReturnType<typeof createValidS6OverlayConfig>;
 
         const result = s6OverlayConfigSchema.validate(config);
 

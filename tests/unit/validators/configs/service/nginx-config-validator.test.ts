@@ -72,9 +72,10 @@ describe('Nginx Configuration Validator', () => {
     it('should require worker processes field', () => {
       // Test requires worker processes field to be present
       const config = createValidNginxConfig();
-      delete (config as any).workerProcesses;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { workerProcesses: _, ...configWithoutWorkerProcesses } = config;
 
-      const result = nginxConfigSchema.validate(config);
+      const result = nginxConfigSchema.validate(configWithoutWorkerProcesses);
 
       expect(result.error).toBeDefined();
       expect(result.error!.message).toContain('workerProcesses is required');
@@ -139,9 +140,10 @@ describe('Nginx Configuration Validator', () => {
     it('should require worker connections field', () => {
       // Test requires worker connections field to be present
       const config = createValidNginxConfig();
-      delete (config as any).workerConnections;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { workerConnections: _, ...configWithoutWorkerConnections } = config;
 
-      const result = nginxConfigSchema.validate(config);
+      const result = nginxConfigSchema.validate(configWithoutWorkerConnections);
 
       expect(result.error).toBeDefined();
       expect(result.error!.message).toContain('workerConnections is required');
@@ -164,8 +166,8 @@ describe('Nginx Configuration Validator', () => {
       // Test rejects gzip as non-boolean value
       const config = {
         ...createValidNginxConfig(),
-        gzip: 123 as any,
-      };
+        gzip: 123,
+      } as unknown as ReturnType<typeof createValidNginxConfig>;
 
       const result = nginxConfigSchema.validate(config);
 
@@ -176,9 +178,10 @@ describe('Nginx Configuration Validator', () => {
     it('should require gzip field', () => {
       // Test requires gzip field to be present
       const config = createValidNginxConfig();
-      delete (config as any).gzip;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { gzip: _, ...configWithoutGzip } = config;
 
-      const result = nginxConfigSchema.validate(config);
+      const result = nginxConfigSchema.validate(configWithoutGzip);
 
       expect(result.error).toBeDefined();
       expect(result.error!.message).toContain('gzip is required');
@@ -201,8 +204,8 @@ describe('Nginx Configuration Validator', () => {
       // Test rejects SSL as non-boolean value
       const config = {
         ...createValidNginxConfig(),
-        ssl: 456 as any,
-      };
+        ssl: 456,
+      } as unknown as ReturnType<typeof createValidNginxConfig>;
 
       const result = nginxConfigSchema.validate(config);
 
@@ -213,9 +216,10 @@ describe('Nginx Configuration Validator', () => {
     it('should require SSL field', () => {
       // Test requires SSL field to be present
       const config = createValidNginxConfig();
-      delete (config as any).ssl;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { ssl: _, ...configWithoutSsl } = config;
 
-      const result = nginxConfigSchema.validate(config);
+      const result = nginxConfigSchema.validate(configWithoutSsl);
 
       expect(result.error).toBeDefined();
       expect(result.error!.message).toContain('ssl is required');
@@ -386,12 +390,12 @@ describe('Nginx Configuration Validator', () => {
           ...createValidNginxConfig(),
           options: {
             rateLimit: {
-              enabled: 789 as any,
+              enabled: 789,
               requests: 100,
               window: '1m',
             },
           },
-        };
+        } as unknown as ReturnType<typeof createValidNginxConfig>;
 
         const result = nginxConfigSchema.validate(config);
 
