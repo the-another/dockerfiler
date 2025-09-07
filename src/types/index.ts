@@ -25,3 +25,8 @@ export * from './docker';
 
 // Export all service-related type definitions
 export * from './services';
+
+// Export dockerfile-generator type definitions
+// Note: Commented out due to module resolution issues in tests
+// The types are still available through direct import from './dockerfile-generator'
+// export * from './dockerfile-generator';

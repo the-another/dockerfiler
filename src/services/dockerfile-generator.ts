@@ -7,27 +7,46 @@
 
 import { ErrorHandlerService } from './error-handler';
 import { logger } from './logger';
-import { ConfigLoaderError, ErrorType, ErrorSeverity } from '@/types';
+import type { FinalConfig, ArchitectureValue } from '@/types';
+import { ConfigLoaderError, ErrorSeverity, ErrorType } from '@/types';
+import * as fs from 'fs-extra';
+import * as path from 'path';
+import Joi from 'joi';
 
-export interface BuildConfig {
-  phpVersion: string;
-  platform: 'alpine' | 'ubuntu';
-  architecture: 'arm64' | 'amd64';
-  packages: string[];
-  security: {
-    user: string;
-    group: string;
-    nonRoot: boolean;
-    readOnlyRoot: boolean;
-    capabilities: string[];
-  };
-  alpine?: {
-    cleanupCommands: string[];
-  };
-  ubuntu?: {
-    cleanupCommands: string[];
-  };
+// Import existing validators
+import { finalConfigSchema } from '@/validators';
+
+// Import architecture utility
+import { ArchitectureTypeUtil } from '@/utils';
+
+// Import dockerfile-generator package
+import { generateDockerFile } from 'dockerfile-generator';
+
+/**
+ * Interface for dockerfile-generator JSON input format
+ */
+export interface DockerfileGeneratorInput {
+  from: string;
+  run?: string[];
+  volumes?: string[];
+  user?: string;
+  working_dir?: string;
+  labels?: Record<string, string>;
+  env?: Record<string, string>;
+  add?: Record<string, string>;
+  copy?: Record<string, string>;
+  entrypoint?: string | string[];
+  cmd?: string | string[];
+  expose?: string[];
+  args?: string[];
+  stopsignal?: string;
+  shell?: string[];
+  comment?: string;
 }
+
+// Use existing FinalConfig type instead of custom BuildConfig
+
+// Use existing finalConfigSchema from validators instead of custom schema
 
 export class DockerfileGeneratorService {
   private static readonly SERVICE_NAME = 'dockerfile-generator' as const;
@@ -48,10 +67,7 @@ export class DockerfileGeneratorService {
       });
   }
 
-  async generateDockerfile(
-    config: BuildConfig,
-    architecture: 'arm64' | 'amd64' | 'all'
-  ): Promise<string> {
+  async generateDockerfile(config: FinalConfig, architecture: ArchitectureValue): Promise<string> {
     try {
       // Validate input parameters
       this.validateBuildConfig(config);
@@ -61,23 +77,73 @@ export class DockerfileGeneratorService {
         service: DockerfileGeneratorService.SERVICE_NAME,
         operation: DockerfileGeneratorService.OPERATION_GENERATE_DOCKERFILE,
         metadata: {
-          phpVersion: config.phpVersion,
+          phpVersion: config.php.version,
           platform: config.platform,
           architecture,
         },
       });
 
-      // Placeholder implementation - will be replaced with actual dockerfile-generator usage
-      return this.generatePlaceholderDockerfile(config, architecture);
+      // Convert FinalConfig to dockerfile-generator JSON format
+      const dockerfileInput = this.convertToDockerfileGeneratorInput(config, architecture);
+
+      // Generate Dockerfile using dockerfile-generator
+      return await generateDockerFile(dockerfileInput);
     } catch (error) {
       await this.errorHandler.handleError(error as Error, {
         operation: 'generateDockerfile',
-        phpVersion: config.phpVersion,
+        phpVersion: config.php.version,
         platform: config.platform,
         architecture,
       });
       throw error; // Re-throw to ensure function exits
     }
+  }
+
+  /**
+   * Generates Dockerfiles for multiple architectures
+   * @param config Build configuration
+   * @param architectures Array of target architectures
+   * @returns Map of architecture to generated Dockerfile content
+   */
+  async generateMultiArchDockerfiles(
+    config: FinalConfig,
+    architectures: ArchitectureValue[]
+  ): Promise<Map<string, string>> {
+    const results = new Map<string, string>();
+
+    logger.info('Generating multi-architecture Dockerfiles', {
+      service: DockerfileGeneratorService.SERVICE_NAME,
+      operation: 'generateMultiArchDockerfiles',
+      metadata: {
+        phpVersion: config.php.version,
+        platform: config.platform,
+        architectures,
+      },
+    });
+
+    // Generate Dockerfiles for each architecture in parallel
+    const promises = architectures.map(async arch => {
+      try {
+        const dockerfile = await this.generateDockerfile(config, arch);
+        results.set(arch, dockerfile);
+
+        logger.info('Generated Dockerfile for architecture', {
+          service: DockerfileGeneratorService.SERVICE_NAME,
+          operation: 'generateMultiArchDockerfiles',
+          metadata: { architecture: arch, dockerfileLength: dockerfile.length },
+        });
+      } catch (error) {
+        logger.error('Failed to generate Dockerfile for architecture', {
+          service: DockerfileGeneratorService.SERVICE_NAME,
+          operation: 'generateMultiArchDockerfiles',
+          metadata: { architecture: arch, error: (error as Error).message },
+        });
+        throw error;
+      }
+    });
+
+    await Promise.all(promises);
+    return results;
   }
 
   async writeOutput(dockerfile: string, outputPath: string): Promise<void> {
@@ -91,9 +157,18 @@ export class DockerfileGeneratorService {
         operation: DockerfileGeneratorService.OPERATION_WRITE_OUTPUT,
         metadata: { outputPath },
       });
-      logger.warn('File writing not yet implemented', {
+
+      // Ensure output directory exists
+      const outputDir = path.dirname(outputPath);
+      await fs.ensureDir(outputDir);
+
+      // Write Dockerfile to file
+      await fs.writeFile(outputPath, dockerfile, 'utf8');
+
+      logger.info('Dockerfile written successfully', {
         service: DockerfileGeneratorService.SERVICE_NAME,
         operation: DockerfileGeneratorService.OPERATION_WRITE_OUTPUT,
+        metadata: { outputPath, fileSize: dockerfile.length },
       });
     } catch (error) {
       await this.errorHandler.handleError(error as Error, {
@@ -104,142 +179,199 @@ export class DockerfileGeneratorService {
     }
   }
 
-  private generatePlaceholderDockerfile(
-    config: BuildConfig,
-    architecture: 'arm64' | 'amd64' | 'all'
-  ): string {
-    const baseImage = this.getBaseImage(config.platform, architecture);
+  /**
+   * Writes multiple Dockerfiles to organized output directories
+   * @param dockerfiles Map of architecture to Dockerfile content
+   * @param baseOutputPath Base output directory path
+   * @param config Build configuration for naming
+   */
+  async writeMultiArchOutput(
+    dockerfiles: Map<string, string>,
+    baseOutputPath: string,
+    config: FinalConfig
+  ): Promise<void> {
+    try {
+      logger.info('Writing multi-architecture Dockerfiles', {
+        service: DockerfileGeneratorService.SERVICE_NAME,
+        operation: 'writeMultiArchOutput',
+        metadata: {
+          baseOutputPath,
+          architectures: Array.from(dockerfiles.keys()),
+          phpVersion: config.php.version,
+          platform: config.platform,
+        },
+      });
 
-    let dockerfile = `# Generated Dockerfile for PHP ${config.phpVersion} on ${config.platform}\n`;
-    dockerfile += `# Architecture: ${architecture}\n\n`;
-    dockerfile += `FROM ${baseImage}\n\n`;
+      const promises = Array.from(dockerfiles.entries()).map(async ([arch, dockerfile]) => {
+        const outputPath = path.join(
+          baseOutputPath,
+          `nginx-php-fpm-${config.php.version}-${config.platform}`,
+          arch,
+          'Dockerfile'
+        );
+
+        await this.writeOutput(dockerfile, outputPath);
+      });
+
+      await Promise.all(promises);
+
+      logger.info('Multi-architecture Dockerfiles written successfully', {
+        service: DockerfileGeneratorService.SERVICE_NAME,
+        operation: 'writeMultiArchOutput',
+        metadata: {
+          baseOutputPath,
+          architectures: Array.from(dockerfiles.keys()),
+          totalFiles: dockerfiles.size,
+        },
+      });
+    } catch (error) {
+      await this.errorHandler.handleError(error as Error, {
+        operation: 'writeMultiArchOutput',
+        baseOutputPath,
+        architectures: Array.from(dockerfiles.keys()),
+      });
+    }
+  }
+
+  /**
+   * Converts FinalConfig to dockerfile-generator JSON input format
+   * @param config Final configuration
+   * @param architecture Target architecture
+   * @returns DockerfileGeneratorInput object
+   */
+  private convertToDockerfileGeneratorInput(
+    config: FinalConfig,
+    architecture: ArchitectureValue
+  ): DockerfileGeneratorInput {
+    const baseImage = config.build.baseImage;
+    const runCommands: string[] = [];
+    const labels: Record<string, string> = {
+      'org.opencontainers.image.description': `PHP ${config.php.version} on ${config.platform}`,
+      'org.opencontainers.image.version': config.php.version,
+      'org.opencontainers.image.platform': config.platform,
+      'org.opencontainers.image.architecture': architecture,
+    };
 
     // Platform-specific package installation
     if (config.platform === 'alpine') {
-      dockerfile += `# Install packages for Alpine\n`;
-      dockerfile += `RUN apk add --no-cache ${config.packages.join(' ')}\n\n`;
+      runCommands.push(`apk add --no-cache ${config.php.extensions.join(' ')}`);
     } else if (config.platform === 'ubuntu') {
-      dockerfile += `# Install packages for Ubuntu\n`;
-      dockerfile += `RUN apt-get update && apt-get install -y ${config.packages.join(' ')}\n\n`;
+      runCommands.push(`apt-get update && apt-get install -y ${config.php.extensions.join(' ')}`);
     }
 
     // Security setup
-    dockerfile += `# Security setup\n`;
-    dockerfile += `RUN groupadd -r ${config.security.group} && useradd -r -g ${config.security.group} ${config.security.user}\n\n`;
-
-    // PHP configuration
-    dockerfile += `# PHP configuration\n`;
-    dockerfile += `COPY php-fpm.conf /etc/php/${config.phpVersion}/fpm/php-fpm.conf\n`;
-    dockerfile += `COPY nginx.conf /etc/nginx/nginx.conf\n\n`;
-
-    // s6-overlay setup
-    dockerfile += `# s6-overlay setup\n`;
-    dockerfile += `COPY s6-overlay/ /etc/s6-overlay/\n\n`;
+    runCommands.push(
+      `groupadd -r ${config.security.group} && useradd -r -g ${config.security.group} ${config.security.user}`
+    );
 
     // Platform-specific cleanup
-    if (config.platform === 'alpine' && config.alpine) {
-      dockerfile += `# Alpine cleanup\n`;
-      config.alpine.cleanupCommands.forEach(cmd => {
-        dockerfile += `RUN ${cmd}\n`;
+    if (config.platformSpecific) {
+      config.platformSpecific.cleanupCommands.forEach(cmd => {
+        runCommands.push(cmd);
       });
-      dockerfile += '\n';
-    } else if (config.platform === 'ubuntu' && config.ubuntu) {
-      dockerfile += `# Ubuntu cleanup\n`;
-      config.ubuntu.cleanupCommands.forEach(cmd => {
-        dockerfile += `RUN ${cmd}\n`;
-      });
-      dockerfile += '\n';
     }
 
-    dockerfile += `EXPOSE 80\n`;
-    dockerfile += `CMD ["/init"]\n`;
-
-    return dockerfile;
-  }
-
-  private getBaseImage(platform: string, architecture: string): string {
-    if (platform === 'alpine') {
-      return architecture === 'arm64' ? 'arm64v8/alpine:3.19' : 'amd64/alpine:3.19';
-    } else if (platform === 'ubuntu') {
-      return architecture === 'arm64' ? 'arm64v8/ubuntu:22.04' : 'amd64/ubuntu:22.04';
-    }
-    throw new ConfigLoaderError(
-      ErrorType.VALIDATION_ERROR,
-      `Unsupported platform: ${platform}`,
-      ErrorSeverity.HIGH,
-      { platform, architecture },
-      ['Use "alpine" or "ubuntu" as the platform']
-    );
+    return {
+      from: baseImage,
+      run: runCommands,
+      user: config.security.user,
+      working_dir: '/var/www/html',
+      labels,
+      env: {
+        PHP_VERSION: config.php.version,
+        PLATFORM: config.platform,
+        ARCHITECTURE: architecture,
+      },
+      copy: {
+        'php-fpm.conf': `/etc/php/${config.php.version}/fpm/php-fpm.conf`,
+        'nginx.conf': '/etc/nginx/nginx.conf',
+        's6-overlay/': '/etc/s6-overlay/',
+      },
+      expose: ['80'],
+      cmd: ['/init'],
+      comment: `Generated Dockerfile for PHP ${config.php.version} on ${config.platform} (${architecture})`,
+    };
   }
 
   /**
-   * Validates build configuration
-   * @param config Build configuration to validate
+   * Validates final configuration using existing Joi schema
+   * @param config Final configuration to validate
    */
-  private validateBuildConfig(config: BuildConfig): void {
-    if (!config) {
-      throw new ConfigLoaderError(
-        ErrorType.VALIDATION_ERROR,
-        'Build configuration is required',
-        ErrorSeverity.HIGH,
-        { config },
-        ['Provide a valid BuildConfig object']
-      );
-    }
+  private validateBuildConfig(config: FinalConfig): void {
+    const { error } = finalConfigSchema.validate(config, {
+      abortEarly: false, // Collect all validation errors
+      stripUnknown: false, // Don't strip unknown properties
+      allowUnknown: false, // Reject unknown properties
+    });
 
-    if (!config.phpVersion || typeof config.phpVersion !== 'string') {
-      throw new ConfigLoaderError(
-        ErrorType.VALIDATION_ERROR,
-        'PHP version is required and must be a string',
-        ErrorSeverity.HIGH,
-        { phpVersion: config.phpVersion, type: typeof config.phpVersion },
-        ['Provide a valid PHP version string (e.g., "8.3", "8.4")']
-      );
-    }
+    if (error) {
+      const errorMessages = error.details.map(detail => detail.message);
+      const suggestions = this.generateValidationSuggestions(error.details);
 
-    if (!config.platform || !['alpine', 'ubuntu'].includes(config.platform)) {
       throw new ConfigLoaderError(
         ErrorType.VALIDATION_ERROR,
-        'Platform must be either "alpine" or "ubuntu"',
+        `Configuration validation failed: ${errorMessages.join(', ')}`,
         ErrorSeverity.HIGH,
-        { platform: config.platform, type: typeof config.platform },
-        ['Use "alpine" for Alpine Linux or "ubuntu" for Ubuntu']
-      );
-    }
-
-    if (!config.packages || !Array.isArray(config.packages) || config.packages.length === 0) {
-      throw new ConfigLoaderError(
-        ErrorType.VALIDATION_ERROR,
-        'Packages array is required and must contain at least one package',
-        ErrorSeverity.HIGH,
-        { packages: config.packages, type: typeof config.packages },
-        ['Provide an array of package names to install']
-      );
-    }
-
-    if (!config.security) {
-      throw new ConfigLoaderError(
-        ErrorType.VALIDATION_ERROR,
-        'Security configuration is required',
-        ErrorSeverity.HIGH,
-        { security: config.security },
-        ['Provide a valid security configuration object']
+        {
+          config: config,
+          validationErrors: error.details,
+          errorCount: error.details.length,
+        },
+        suggestions
       );
     }
   }
 
   /**
-   * Validates architecture parameter
+   * Generates helpful suggestions based on validation errors
+   * @param details Validation error details
+   * @returns Array of suggestion strings
+   */
+  private generateValidationSuggestions(details: Joi.ValidationErrorItem[]): string[] {
+    const suggestions: string[] = [];
+
+    details.forEach(detail => {
+      const path = detail.path || detail.context?.key || 'unknown';
+      const firstPathElement = Array.isArray(path) ? path[0] : path;
+      switch (firstPathElement) {
+        case 'php':
+          suggestions.push('Check PHP configuration including version and extensions');
+          break;
+        case 'platform':
+          suggestions.push('Use "alpine" for Alpine Linux or "ubuntu" for Ubuntu');
+          break;
+        case 'architecture':
+          suggestions.push('Use "arm64" for ARM64 or "amd64" for AMD64');
+          break;
+        case 'build':
+          suggestions.push('Check build configuration including baseImage');
+          break;
+        case 'security':
+          suggestions.push('Check security configuration including user, group, and capabilities');
+          break;
+        default:
+          suggestions.push(
+            `Check the ${Array.isArray(path) ? path.join('.') : path} field configuration`
+          );
+      }
+    });
+
+    return suggestions;
+  }
+
+  /**
+   * Validates architecture parameter using project validators
    * @param architecture Architecture to validate
    */
   private validateArchitecture(architecture: string): void {
-    if (!architecture || !['arm64', 'amd64', 'all'].includes(architecture)) {
+    if (!ArchitectureTypeUtil.isValidArchitecture(architecture)) {
+      const supportedArchitectures = ArchitectureTypeUtil.getAllArchitectures();
       throw new ConfigLoaderError(
         ErrorType.VALIDATION_ERROR,
-        'Architecture must be "arm64", "amd64", or "all"',
+        `Invalid architecture: ${architecture}`,
         ErrorSeverity.HIGH,
-        { architecture, type: typeof architecture },
-        ['Use "arm64" for ARM64, "amd64" for AMD64, or "all" for both']
+        { architecture, type: typeof architecture, supportedArchitectures },
+        [`Supported architectures: ${supportedArchitectures.join(', ')}`]
       );
     }
   }
@@ -249,23 +381,13 @@ export class DockerfileGeneratorService {
    * @param dockerfile Dockerfile content to validate
    */
   private validateDockerfile(dockerfile: string): void {
-    if (!dockerfile || typeof dockerfile !== 'string') {
+    if (!dockerfile || dockerfile.trim().length === 0) {
       throw new ConfigLoaderError(
         ErrorType.VALIDATION_ERROR,
-        'Dockerfile content is required and must be a string',
+        'Dockerfile content is required and cannot be empty',
         ErrorSeverity.HIGH,
         { dockerfile: dockerfile, type: typeof dockerfile },
-        ['Provide valid Dockerfile content as a string']
-      );
-    }
-
-    if (dockerfile.trim().length === 0) {
-      throw new ConfigLoaderError(
-        ErrorType.VALIDATION_ERROR,
-        'Dockerfile content cannot be empty',
-        ErrorSeverity.HIGH,
-        { dockerfileLength: dockerfile.length },
-        ['Provide non-empty Dockerfile content']
+        ['Provide valid non-empty Dockerfile content as a string']
       );
     }
   }
@@ -275,23 +397,13 @@ export class DockerfileGeneratorService {
    * @param outputPath Output path to validate
    */
   private validateOutputPath(outputPath: string): void {
-    if (!outputPath || typeof outputPath !== 'string') {
+    if (!outputPath || outputPath.trim().length === 0) {
       throw new ConfigLoaderError(
         ErrorType.VALIDATION_ERROR,
-        'Output path is required and must be a string',
+        'Output path is required and cannot be empty',
         ErrorSeverity.HIGH,
         { outputPath, type: typeof outputPath },
-        ['Provide a valid file path for the output']
-      );
-    }
-
-    if (outputPath.trim().length === 0) {
-      throw new ConfigLoaderError(
-        ErrorType.VALIDATION_ERROR,
-        'Output path cannot be empty',
-        ErrorSeverity.HIGH,
-        { outputPath },
-        ['Provide a non-empty output path']
+        ['Provide a valid non-empty file path for the output']
       );
     }
   }

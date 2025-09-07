@@ -98,16 +98,52 @@ describe('Error Service Integration', () => {
     it('should handle invalid architecture errors', async () => {
       const dockerfileGenerator = new DockerfileGeneratorService(errorHandler);
       const validConfig = {
-        phpVersion: '8.3',
-        platform: 'alpine' as const,
         architecture: 'amd64' as const,
-        packages: ['nginx', 'php'],
+        platform: 'alpine' as const,
+        build: {
+          baseImage: 'amd64/alpine:3.19',
+        },
+        php: {
+          version: '8.3',
+          extensions: ['nginx', 'php'],
+          fpm: {
+            maxChildren: 50,
+            startServers: 5,
+            minSpareServers: 5,
+            maxSpareServers: 35,
+          },
+        },
         security: {
           user: 'www-data',
           group: 'www-data',
           nonRoot: true,
           readOnlyRoot: true,
           capabilities: ['CHOWN'],
+        },
+        nginx: {
+          workerProcesses: 'auto',
+          workerConnections: 1024,
+          gzip: true,
+          ssl: false,
+          options: {
+            clientMaxBodySize: '1m',
+          },
+        },
+        s6Overlay: {
+          services: ['nginx', 'php-fpm'],
+          crontab: ['0 2 * * * /usr/bin/find /var/log -name "*.log" -mtime +7 -delete'],
+        },
+        platformSpecific: {
+          packageManager: {
+            useCache: true,
+            cleanCache: true,
+          },
+          optimizations: {
+            security: true,
+            minimal: true,
+            performance: true,
+          },
+          cleanupCommands: ['rm -rf /var/cache/apk/*'],
         },
       };
 
