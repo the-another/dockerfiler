@@ -3,18 +3,11 @@ name: Multi-Architecture Docker Build and Push
 on:
   workflow_dispatch:
     inputs:
-      php_version:
-        description: "PHP version to build"
+      php_versions:
+        description: "PHP versions to build (comma-separated, e.g., '7.4,8.0,8.1')"
         required: true
-        default: "7.4"
-        type: choice
-        options:
-          - "7.4"
-          - "8.0"
-          - "8.1"
-          - "8.2"
-          - "8.3"
-          - "8.4"
+        default: "7.4,8.0,8.1,8.2,8.3,8.4"
+        type: string
       image_type:
         description: "Image type to build"
         required: true
@@ -35,11 +28,27 @@ env:
   DOCKER_ORG: theanother
 
 jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      php_versions: ${{ steps.set-versions.outputs.php_versions }}
+    steps:
+      - name: Parse PHP versions
+        id: set-versions
+        run: |
+          # Parse comma-separated PHP versions from input
+          php_versions="${{ github.event.inputs.php_versions }}"
+          # Remove spaces and create JSON array
+          php_versions=$(echo "$php_versions" | tr -d ' ' | tr ',' '\n' | jq -R . | jq -s .)
+          echo "php_versions=$php_versions" >> $GITHUB_OUTPUT
+          echo "Parsed PHP versions: $php_versions"
+
   build-php:
     runs-on: ubuntu-latest
+    needs: setup
     strategy:
       matrix:
-        php_version: [7.4, 8.0, 8.1, 8.2, 8.3, 8.4]
+        php_version: ${{ fromJson(needs.setup.outputs.php_versions) }}
         include:
           - php_version: 7.4
             alpine_version: 3.22
@@ -61,12 +70,6 @@ jobs:
       - name: Check if PHP job should run
         if: github.event_name == 'workflow_dispatch'
         run: |
-          # Skip job if specific PHP version is requested and this isn't it
-          if [ "${{ github.event.inputs.php_version }}" != "" ] && [ "${{ github.event.inputs.php_version }}" != "${{ matrix.php_version }}" ]; then
-            echo "Skipping PHP job - PHP version mismatch"
-            exit 1
-          fi
-
           # Skip job if only nginx-php is requested
           if [ "${{ github.event.inputs.image_type }}" = "nginx-php" ]; then
             echo "Skipping PHP job - only nginx-php requested"
@@ -140,10 +143,10 @@ jobs:
 
   build-nginx-php:
     runs-on: ubuntu-latest
-    needs: build-php
+    needs: [setup, build-php]
     strategy:
       matrix:
-        php_version: [7.4, 8.0, 8.1, 8.2, 8.3, 8.4]
+        php_version: ${{ fromJson(needs.setup.outputs.php_versions) }}
         include:
           - php_version: 7.4
             alpine_version: 3.22
@@ -165,12 +168,6 @@ jobs:
       - name: Check if nginx-php job should run
         if: github.event_name == 'workflow_dispatch'
         run: |
-          # Skip job if specific PHP version is requested and this isn't it
-          if [ "${{ github.event.inputs.php_version }}" != "" ] && [ "${{ github.event.inputs.php_version }}" != "${{ matrix.php_version }}" ]; then
-            echo "Skipping nginx-php job - PHP version mismatch"
-            exit 1
-          fi
-
           # Skip job if only php is requested
           if [ "${{ github.event.inputs.image_type }}" = "php" ]; then
             echo "Skipping nginx-php job - only php requested"
@@ -247,12 +244,12 @@ jobs:
 
   security-scan-php:
     runs-on: ubuntu-latest
-    needs: build-php
+    needs: [setup, build-php]
     if: github.event_name != 'pull_request'
 
     strategy:
       matrix:
-        php_version: [7.4, 8.0, 8.1, 8.2, 8.3, 8.4]
+        php_version: ${{ fromJson(needs.setup.outputs.php_versions) }}
 
     steps:
       - name: Run Trivy vulnerability scanner for PHP image
@@ -270,12 +267,12 @@ jobs:
 
   security-scan-nginx-php:
     runs-on: ubuntu-latest
-    needs: build-nginx-php
+    needs: [setup, build-nginx-php]
     if: github.event_name != 'pull_request'
 
     strategy:
       matrix:
-        php_version: [7.4, 8.0, 8.1, 8.2, 8.3, 8.4]
+        php_version: ${{ fromJson(needs.setup.outputs.php_versions) }}
 
     steps:
       - name: Run Trivy vulnerability scanner for nginx-php image
@@ -293,12 +290,12 @@ jobs:
 
   test-php:
     runs-on: ubuntu-latest
-    needs: build-php
+    needs: [setup, build-php]
     if: github.event_name != 'pull_request'
 
     strategy:
       matrix:
-        php_version: [7.4, 8.0, 8.1, 8.2, 8.3, 8.4]
+        php_version: ${{ fromJson(needs.setup.outputs.php_versions) }}
         platform: [linux/amd64, linux/arm64]
 
     steps:
@@ -332,12 +329,12 @@ jobs:
 
   test-nginx-php:
     runs-on: ubuntu-latest
-    needs: build-nginx-php
+    needs: [setup, build-nginx-php]
     if: github.event_name != 'pull_request'
 
     strategy:
       matrix:
-        php_version: [7.4, 8.0, 8.1, 8.2, 8.3, 8.4]
+        php_version: ${{ fromJson(needs.setup.outputs.php_versions) }}
         platform: [linux/amd64, linux/arm64]
 
     steps:
@@ -382,6 +379,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       [
+        setup,
         build-php,
         build-nginx-php,
         security-scan-php,
