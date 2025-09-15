@@ -1,0 +1,3 @@
+#!/bin/sh
+# Clean up PHP-FPM socket
+rm -f /home/another/run/php-fpm.sock

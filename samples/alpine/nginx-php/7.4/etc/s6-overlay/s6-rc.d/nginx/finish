@@ -1,0 +1,3 @@
+#!/bin/sh
+# Gracefully shutdown nginx as non-root user
+nginx -s quit

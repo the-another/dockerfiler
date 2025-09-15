@@ -1,0 +1,2 @@
+#!/bin/sh
+exec s6-envuidgid another /usr/local/bin/php-fpm --nodaemonize --fpm-config /etc/php/php-fpm.conf
