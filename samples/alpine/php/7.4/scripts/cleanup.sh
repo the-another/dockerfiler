@@ -40,9 +40,7 @@ apk del --no-cache \
     libxau-dev \
     libxdmcp-dev \
     libxcb-dev \
-    xorgproto \
-    libiconv-dev \
-    musl-locales-dev
+    xorgproto
 
 # Clean up package cache
 echo "Cleaning up package cache..."

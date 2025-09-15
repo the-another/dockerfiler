@@ -1,11 +1,6 @@
 name: Multi-Architecture Docker Build and Push
 
 on:
-  push:
-    branches: [main, master]
-    tags: ["v*"]
-  pull_request:
-    branches: [main, master]
   workflow_dispatch:
     inputs:
       php_version:
@@ -20,6 +15,15 @@ on:
           - "8.2"
           - "8.3"
           - "8.4"
+      image_type:
+        description: "Image type to build"
+        required: true
+        default: "both"
+        type: choice
+        options:
+          - "php"
+          - "nginx-php"
+          - "both"
       push_to_registry:
         description: "Push to Docker Hub"
         required: false
@@ -28,10 +32,10 @@ on:
 
 env:
   DOCKER_REGISTRY: docker.io
-  IMAGE_NAME: nginx-php-fpm
+  DOCKER_ORG: theanother
 
 jobs:
-  build-and-push:
+  build-php:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -54,6 +58,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Check if PHP job should run
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          # Skip job if specific PHP version is requested and this isn't it
+          if [ "${{ github.event.inputs.php_version }}" != "" ] && [ "${{ github.event.inputs.php_version }}" != "${{ matrix.php_version }}" ]; then
+            echo "Skipping PHP job - PHP version mismatch"
+            exit 1
+          fi
+
+          # Skip job if only nginx-php is requested
+          if [ "${{ github.event.inputs.image_type }}" = "nginx-php" ]; then
+            echo "Skipping PHP job - only nginx-php requested"
+            exit 1
+          fi
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
@@ -61,33 +80,39 @@ jobs:
           driver-opts: |
             image=moby/buildkit:latest
 
-       - name: Log in to Docker Hub
-         if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/') || github.event.inputs.push_to_registry == 'true')
-         uses: docker/login-action@v3
-         with:
-           registry: ${{ env.DOCKER_REGISTRY }}
-           username: ${{ secrets.DOCKER_USERNAME }}
-           password: ${{ secrets.DOCKER_PAT }}
+      - name: Log in to Docker Hub
+        if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/') || github.event.inputs.push_to_registry == 'true')
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PAT }}
+
+      - name: Set PHP image configuration
+        id: php-config
+        run: |
+          echo "image_name=${{ env.DOCKER_ORG }}/another-php" >> $GITHUB_OUTPUT
+          echo "context=./samples/alpine/php/${{ matrix.php_version }}" >> $GITHUB_OUTPUT
+          echo "tag_suffix=${{ matrix.php_version }}-alpine" >> $GITHUB_OUTPUT
 
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.DOCKER_REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.DOCKER_REGISTRY }}/${{ steps.php-config.outputs.image_name }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=raw,value=php-${{ matrix.php_version }}-alpine,enable={{is_default_branch}}
-            type=raw,value=php-${{ matrix.php_version }}-alpine-{{date 'YYYYMMDD'}},enable={{is_default_branch}}
-            type=raw,value=latest,enable={{is_default_branch && matrix.php_version == '8.4'}}
+            type=raw,value=${{ steps.php-config.outputs.tag_suffix }},enable={{is_default_branch}}
+            type=raw,value=${{ steps.php-config.outputs.tag_suffix }}-{{date 'YYYYMMDD'}},enable={{is_default_branch}}
 
-      - name: Build and push Docker image
+      - name: Build and push PHP Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./samples/alpine/php-fpm/${{ matrix.php_version }}
+          context: ${{ steps.php-config.outputs.context }}
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/') || github.event.inputs.push_to_registry == 'true') }}
           tags: ${{ steps.meta.outputs.tags }}
@@ -97,26 +122,132 @@ jobs:
           build-args: |
             PHP_VERSION=${{ matrix.php_version }}
             ALPINE_VERSION=${{ matrix.alpine_version }}
-          target: production
 
-      - name: Generate SBOM
+      - name: Generate SBOM for PHP image
         if: github.event_name != 'pull_request'
         uses: anchore/sbom-action@v0
         with:
-          image: ${{ env.DOCKER_REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:php-${{ matrix.php_version }}-alpine
+          image: ${{ env.DOCKER_REGISTRY }}/${{ steps.php-config.outputs.image_name }}:${{ steps.php-config.outputs.tag_suffix }}
           format: spdx-json
-          output-file: sbom-${{ matrix.php_version }}.json
+          output-file: sbom-php-${{ matrix.php_version }}.json
 
-      - name: Upload SBOM
+      - name: Upload PHP SBOM
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: sbom-php-${{ matrix.php_version }}
-          path: sbom-${{ matrix.php_version }}.json
+          path: sbom-php-${{ matrix.php_version }}.json
 
-  security-scan:
+  build-nginx-php:
     runs-on: ubuntu-latest
-    needs: build-and-push
+    needs: build-php
+    strategy:
+      matrix:
+        php_version: [7.4, 8.0, 8.1, 8.2, 8.3, 8.4]
+        include:
+          - php_version: 7.4
+            alpine_version: 3.22
+          - php_version: 8.0
+            alpine_version: 3.22
+          - php_version: 8.1
+            alpine_version: 3.22
+          - php_version: 8.2
+            alpine_version: 3.22
+          - php_version: 8.3
+            alpine_version: 3.22
+          - php_version: 8.4
+            alpine_version: 3.22
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check if nginx-php job should run
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          # Skip job if specific PHP version is requested and this isn't it
+          if [ "${{ github.event.inputs.php_version }}" != "" ] && [ "${{ github.event.inputs.php_version }}" != "${{ matrix.php_version }}" ]; then
+            echo "Skipping nginx-php job - PHP version mismatch"
+            exit 1
+          fi
+
+          # Skip job if only php is requested
+          if [ "${{ github.event.inputs.image_type }}" = "php" ]; then
+            echo "Skipping nginx-php job - only php requested"
+            exit 1
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
+          driver-opts: |
+            image=moby/buildkit:latest
+
+      - name: Log in to Docker Hub
+        if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/') || github.event.inputs.push_to_registry == 'true')
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PAT }}
+
+      - name: Set nginx-php image configuration
+        id: nginx-php-config
+        run: |
+          echo "image_name=${{ env.DOCKER_ORG }}/another-php" >> $GITHUB_OUTPUT
+          echo "context=./samples/alpine/nginx-php/${{ matrix.php_version }}" >> $GITHUB_OUTPUT
+          echo "tag_suffix=${{ matrix.php_version }}-nginx-alpine" >> $GITHUB_OUTPUT
+          echo "base_image=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_ORG }}/another-php:${{ matrix.php_version }}-alpine" >> $GITHUB_OUTPUT
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ steps.nginx-php-config.outputs.image_name }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=${{ steps.nginx-php-config.outputs.tag_suffix }},enable={{is_default_branch}}
+            type=raw,value=${{ steps.nginx-php-config.outputs.tag_suffix }}-{{date 'YYYYMMDD'}},enable={{is_default_branch}}
+            type=raw,value=latest,enable={{is_default_branch && matrix.php_version == '8.4'}}
+
+      - name: Build and push nginx-php Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ steps.nginx-php-config.outputs.context }}
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/') || github.event.inputs.push_to_registry == 'true') }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            PHP_VERSION=${{ matrix.php_version }}
+            ALPINE_VERSION=${{ matrix.alpine_version }}
+            BASE_IMAGE=${{ steps.nginx-php-config.outputs.base_image }}
+
+      - name: Generate SBOM for nginx-php image
+        if: github.event_name != 'pull_request'
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.DOCKER_REGISTRY }}/${{ steps.nginx-php-config.outputs.image_name }}:${{ steps.nginx-php-config.outputs.tag_suffix }}
+          format: spdx-json
+          output-file: sbom-nginx-php-${{ matrix.php_version }}.json
+
+      - name: Upload nginx-php SBOM
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-nginx-php-${{ matrix.php_version }}
+          path: sbom-nginx-php-${{ matrix.php_version }}.json
+
+  security-scan-php:
+    runs-on: ubuntu-latest
+    needs: build-php
     if: github.event_name != 'pull_request'
 
     strategy:
@@ -124,22 +255,45 @@ jobs:
         php_version: [7.4, 8.0, 8.1, 8.2, 8.3, 8.4]
 
     steps:
-      - name: Run Trivy vulnerability scanner
+      - name: Run Trivy vulnerability scanner for PHP image
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.DOCKER_REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:php-${{ matrix.php_version }}-alpine
+          image-ref: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_ORG }}/another-php:${{ matrix.php_version }}-alpine
           format: "sarif"
-          output: "trivy-results-${{ matrix.php_version }}.sarif"
+          output: "trivy-results-php-${{ matrix.php_version }}.sarif"
 
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
-          sarif_file: "trivy-results-${{ matrix.php_version }}.sarif"
+          sarif_file: "trivy-results-php-${{ matrix.php_version }}.sarif"
 
-  test:
+  security-scan-nginx-php:
     runs-on: ubuntu-latest
-    needs: build-and-push
+    needs: build-nginx-php
+    if: github.event_name != 'pull_request'
+
+    strategy:
+      matrix:
+        php_version: [7.4, 8.0, 8.1, 8.2, 8.3, 8.4]
+
+    steps:
+      - name: Run Trivy vulnerability scanner for nginx-php image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_ORG }}/another-php:${{ matrix.php_version }}-nginx-alpine
+          format: "sarif"
+          output: "trivy-results-nginx-php-${{ matrix.php_version }}.sarif"
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: "trivy-results-nginx-php-${{ matrix.php_version }}.sarif"
+
+  test-php:
+    runs-on: ubuntu-latest
+    needs: build-php
     if: github.event_name != 'pull_request'
 
     strategy:
@@ -154,31 +308,71 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build test image
+      - name: Build test PHP image
         uses: docker/build-push-action@v5
         with:
-          context: ./samples/alpine/php-fpm/${{ matrix.php_version }}
+          context: ./samples/alpine/php/${{ matrix.php_version }}
           platforms: ${{ matrix.platform }}
           load: true
-          tags: test-image:${{ matrix.php_version }}-${{ matrix.platform }}
+          tags: test-php-image:${{ matrix.php_version }}-${{ matrix.platform }}
           build-args: |
             PHP_VERSION=${{ matrix.php_version }}
 
       - name: Test PHP version
         run: |
-          docker run --rm test-image:${{ matrix.php_version }}-${{ matrix.platform }} php -v
-
-      - name: Test Nginx configuration
-        run: |
-          docker run --rm test-image:${{ matrix.php_version }}-${{ matrix.platform }} nginx -t
+          docker run --rm test-php-image:${{ matrix.php_version }}-${{ matrix.platform }} php -v
 
       - name: Test PHP-FPM configuration
         run: |
-          docker run --rm test-image:${{ matrix.php_version }}-${{ matrix.platform }} php-fpm -t
+          docker run --rm test-php-image:${{ matrix.php_version }}-${{ matrix.platform }} php-fpm -t
+
+      - name: Test PHP CLI extensions
+        run: |
+          docker run --rm test-php-image:${{ matrix.php_version }}-${{ matrix.platform }} php -m | grep -E "(mbstring|xml|curl|opcache)"
+
+  test-nginx-php:
+    runs-on: ubuntu-latest
+    needs: build-nginx-php
+    if: github.event_name != 'pull_request'
+
+    strategy:
+      matrix:
+        php_version: [7.4, 8.0, 8.1, 8.2, 8.3, 8.4]
+        platform: [linux/amd64, linux/arm64]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build test nginx-php image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./samples/alpine/nginx-php/${{ matrix.php_version }}
+          platforms: ${{ matrix.platform }}
+          load: true
+          tags: test-nginx-php-image:${{ matrix.php_version }}-${{ matrix.platform }}
+          build-args: |
+            PHP_VERSION=${{ matrix.php_version }}
+            BASE_IMAGE=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_ORG }}/another-php:${{ matrix.php_version }}-alpine
+
+      - name: Test PHP version
+        run: |
+          docker run --rm test-nginx-php-image:${{ matrix.php_version }}-${{ matrix.platform }} php -v
+
+      - name: Test PHP-FPM configuration
+        run: |
+          docker run --rm test-nginx-php-image:${{ matrix.php_version }}-${{ matrix.platform }} php-fpm -t
+
+      - name: Test Nginx configuration
+        run: |
+          docker run --rm test-nginx-php-image:${{ matrix.php_version }}-${{ matrix.platform }} nginx -t
 
       - name: Test container health
         run: |
-          docker run -d --name test-container -p 8080:80 test-image:${{ matrix.php_version }}-${{ matrix.platform }}
+          docker run -d --name test-container -p 8080:80 test-nginx-php-image:${{ matrix.php_version }}-${{ matrix.platform }}
           sleep 10
           curl -f http://localhost:8080 || exit 1
           docker stop test-container
@@ -186,7 +380,15 @@ jobs:
 
   cleanup:
     runs-on: ubuntu-latest
-    needs: [build-and-push, security-scan, test]
+    needs:
+      [
+        build-php,
+        build-nginx-php,
+        security-scan-php,
+        security-scan-nginx-php,
+        test-php,
+        test-nginx-php,
+      ]
     if: always()
 
     steps:

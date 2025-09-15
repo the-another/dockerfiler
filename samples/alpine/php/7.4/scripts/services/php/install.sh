@@ -191,8 +191,13 @@ apk add --no-cache \
     icu \
     tzdata \
     gd \
-    libiconv \
-    musl-locales
+    musl-utils \
+    gnu-libiconv
+
+# Configure GNU libiconv for better TRANSLIT support
+echo "Configuring GNU libiconv for TRANSLIT support..."
+echo 'export LD_PRELOAD=/usr/lib/preloadable_libiconv.so' >> /etc/profile
+echo 'export LD_PRELOAD=/usr/lib/preloadable_libiconv.so' >> /etc/environment
 
 # Install additional build dependencies for PHP
 echo "Installing additional build dependencies for PHP..."
@@ -219,9 +224,7 @@ apk add --no-cache \
     libxdmcp-dev \
     libxcb-dev \
     xorgproto \
-    gd-dev \
-    libiconv-dev \
-    musl-locales-dev
+    gd-dev
 
 # Download and extract PHP 7.4.33 (latest 7.4.x version)
 echo "Downloading PHP 7.4.33 source..."

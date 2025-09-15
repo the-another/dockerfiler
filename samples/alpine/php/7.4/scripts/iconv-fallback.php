@@ -1,9 +1,9 @@
 <?php
 /**
- * Iconv Fallback Utility for Alpine Linux musl libc
+ * Iconv Fallback Utility for Alpine Linux with GNU libiconv
  * 
- * This utility provides fallback functionality for iconv operations that may fail
- * due to musl libc's stricter POSIX compliance, particularly with //TRANSLIT option.
+ * This utility provides fallback functionality for iconv operations and tests
+ * the GNU libiconv implementation that should be preloaded via LD_PRELOAD.
  * 
  * Usage:
  *   php iconv-fallback.php "input string" "from_encoding" "to_encoding" [translit]
@@ -189,7 +189,16 @@ class IconvFallback {
         ];
         
         echo "Testing iconv functionality:\n";
-        echo "Test string: $testString\n\n";
+        echo "Test string: $testString\n";
+        
+        // Check if GNU libiconv is loaded
+        $ldPreload = getenv('LD_PRELOAD');
+        if ($ldPreload && strpos($ldPreload, 'preloadable_libiconv.so') !== false) {
+            echo "GNU libiconv is preloaded: $ldPreload\n";
+        } else {
+            echo "GNU libiconv is NOT preloaded (LD_PRELOAD: " . ($ldPreload ?: 'not set') . ")\n";
+        }
+        echo "\n";
         
         foreach ($testCases as [$from, $to, $translit]) {
             echo "Testing: $from -> $to" . ($translit ? ' (with TRANSLIT)' : '') . "\n";
