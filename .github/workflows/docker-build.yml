@@ -38,8 +38,8 @@ jobs:
         run: |
           # Parse comma-separated PHP versions from input
           php_versions="${{ github.event.inputs.php_versions }}"
-          # Remove spaces and create JSON array
-          php_versions=$(echo "$php_versions" | tr -d ' ' | tr ',' '\n' | jq -R . | jq -s .)
+          # Remove spaces and create compact JSON array
+          php_versions=$(echo "$php_versions" | tr -d ' ' | tr ',' '\n' | jq -R . | jq -s . | jq -c .)
           echo "php_versions=$php_versions" >> $GITHUB_OUTPUT
           echo "Parsed PHP versions: $php_versions"
 
