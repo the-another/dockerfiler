@@ -32,6 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       php_versions: ${{ steps.set-versions.outputs.php_versions }}
+      matrix_include: ${{ steps.set-versions.outputs.matrix_include }}
     steps:
       - name: Parse PHP versions
         id: set-versions
@@ -41,7 +42,15 @@ jobs:
           # Remove spaces and create compact JSON array
           php_versions=$(echo "$php_versions" | tr -d ' ' | tr ',' '\n' | jq -R . | jq -s . | jq -c .)
           echo "php_versions=$php_versions" >> $GITHUB_OUTPUT
+
+          # Create matrix include array for selected versions only
+          matrix_include=$(echo "$php_versions" | jq -r '.[]' | while read version; do
+            echo "{\"php_version\":\"$version\",\"alpine_version\":\"3.22\"}"
+          done | jq -s . | jq -c .)
+          echo "matrix_include=$matrix_include" >> $GITHUB_OUTPUT
+
           echo "Parsed PHP versions: $php_versions"
+          echo "Matrix include: $matrix_include"
 
   build-php:
     runs-on: ubuntu-latest
@@ -49,19 +58,7 @@ jobs:
     strategy:
       matrix:
         php_version: ${{ fromJson(needs.setup.outputs.php_versions) }}
-        include:
-          - php_version: 7.4
-            alpine_version: 3.22
-          - php_version: 8.0
-            alpine_version: 3.22
-          - php_version: 8.1
-            alpine_version: 3.22
-          - php_version: 8.2
-            alpine_version: 3.22
-          - php_version: 8.3
-            alpine_version: 3.22
-          - php_version: 8.4
-            alpine_version: 3.22
+        include: ${{ fromJson(needs.setup.outputs.matrix_include) }}
 
     steps:
       - name: Checkout repository
@@ -147,19 +144,7 @@ jobs:
     strategy:
       matrix:
         php_version: ${{ fromJson(needs.setup.outputs.php_versions) }}
-        include:
-          - php_version: 7.4
-            alpine_version: 3.22
-          - php_version: 8.0
-            alpine_version: 3.22
-          - php_version: 8.1
-            alpine_version: 3.22
-          - php_version: 8.2
-            alpine_version: 3.22
-          - php_version: 8.3
-            alpine_version: 3.22
-          - php_version: 8.4
-            alpine_version: 3.22
+        include: ${{ fromJson(needs.setup.outputs.matrix_include) }}
 
     steps:
       - name: Checkout repository
