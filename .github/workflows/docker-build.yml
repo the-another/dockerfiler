@@ -195,7 +195,6 @@ jobs:
             type=semver,pattern={{major}}
             type=raw,value=${{ steps.nginx-php-config.outputs.tag_suffix }},enable={{is_default_branch}}
             type=raw,value=${{ steps.nginx-php-config.outputs.tag_suffix }}-{{date 'YYYYMMDD'}},enable={{is_default_branch}}
-            type=raw,value=latest,enable={{is_default_branch and matrix.php_version == '8.4'}}
 
       - name: Build and push nginx-php Docker image
         uses: docker/build-push-action@v5
