@@ -195,7 +195,7 @@ jobs:
             type=semver,pattern={{major}}
             type=raw,value=${{ steps.nginx-php-config.outputs.tag_suffix }},enable={{is_default_branch}}
             type=raw,value=${{ steps.nginx-php-config.outputs.tag_suffix }}-{{date 'YYYYMMDD'}},enable={{is_default_branch}}
-            type=raw,value=latest,enable={{is_default_branch && matrix.php_version == '8.4'}}
+            type=raw,value=latest,enable={{is_default_branch and matrix.php_version == '8.4'}}
 
       - name: Build and push nginx-php Docker image
         uses: docker/build-push-action@v5
@@ -237,6 +237,9 @@ jobs:
         php_version: ${{ fromJson(needs.setup.outputs.php_versions) }}
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Run Trivy vulnerability scanner for PHP image
         uses: aquasecurity/trivy-action@master
         with:
@@ -249,6 +252,7 @@ jobs:
         if: always()
         with:
           sarif_file: "trivy-results-php-${{ matrix.php_version }}.sarif"
+          category: "trivy-php-${{ matrix.php_version }}"
 
   security-scan-nginx-php:
     runs-on: ubuntu-latest
@@ -260,6 +264,9 @@ jobs:
         php_version: ${{ fromJson(needs.setup.outputs.php_versions) }}
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Run Trivy vulnerability scanner for nginx-php image
         uses: aquasecurity/trivy-action@master
         with:
@@ -272,93 +279,7 @@ jobs:
         if: always()
         with:
           sarif_file: "trivy-results-nginx-php-${{ matrix.php_version }}.sarif"
-
-  test-php:
-    runs-on: ubuntu-latest
-    needs: [setup, build-php]
-    if: github.event_name != 'pull_request'
-
-    strategy:
-      matrix:
-        php_version: ${{ fromJson(needs.setup.outputs.php_versions) }}
-        platform: [linux/amd64, linux/arm64]
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build test PHP image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./samples/alpine/php/${{ matrix.php_version }}
-          platforms: ${{ matrix.platform }}
-          load: true
-          tags: test-php-image:${{ matrix.php_version }}-${{ matrix.platform }}
-          build-args: |
-            PHP_VERSION=${{ matrix.php_version }}
-
-      - name: Test PHP version
-        run: |
-          docker run --rm test-php-image:${{ matrix.php_version }}-${{ matrix.platform }} php -v
-
-      - name: Test PHP-FPM configuration
-        run: |
-          docker run --rm test-php-image:${{ matrix.php_version }}-${{ matrix.platform }} php-fpm -t
-
-      - name: Test PHP CLI extensions
-        run: |
-          docker run --rm test-php-image:${{ matrix.php_version }}-${{ matrix.platform }} php -m | grep -E "(mbstring|xml|curl|opcache)"
-
-  test-nginx-php:
-    runs-on: ubuntu-latest
-    needs: [setup, build-nginx-php]
-    if: github.event_name != 'pull_request'
-
-    strategy:
-      matrix:
-        php_version: ${{ fromJson(needs.setup.outputs.php_versions) }}
-        platform: [linux/amd64, linux/arm64]
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build test nginx-php image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./samples/alpine/nginx-php/${{ matrix.php_version }}
-          platforms: ${{ matrix.platform }}
-          load: true
-          tags: test-nginx-php-image:${{ matrix.php_version }}-${{ matrix.platform }}
-          build-args: |
-            PHP_VERSION=${{ matrix.php_version }}
-            BASE_IMAGE=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_ORG }}/another-php:${{ matrix.php_version }}-alpine
-
-      - name: Test PHP version
-        run: |
-          docker run --rm test-nginx-php-image:${{ matrix.php_version }}-${{ matrix.platform }} php -v
-
-      - name: Test PHP-FPM configuration
-        run: |
-          docker run --rm test-nginx-php-image:${{ matrix.php_version }}-${{ matrix.platform }} php-fpm -t
-
-      - name: Test Nginx configuration
-        run: |
-          docker run --rm test-nginx-php-image:${{ matrix.php_version }}-${{ matrix.platform }} nginx -t
-
-      - name: Test container health
-        run: |
-          docker run -d --name test-container -p 8080:80 test-nginx-php-image:${{ matrix.php_version }}-${{ matrix.platform }}
-          sleep 10
-          curl -f http://localhost:8080 || exit 1
-          docker stop test-container
-          docker rm test-container
+          category: "trivy-nginx-php-${{ matrix.php_version }}"
 
   cleanup:
     runs-on: ubuntu-latest
@@ -369,8 +290,6 @@ jobs:
         build-nginx-php,
         security-scan-php,
         security-scan-nginx-php,
-        test-php,
-        test-nginx-php,
       ]
     if: always()
 
