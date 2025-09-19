@@ -1,0 +1,43 @@
+# Sample crontab for nginx-php web server
+# This file contains common scheduled tasks for web server maintenance
+
+# Environment variables
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+MAILTO=""
+
+# Default dummy task - executes once per day at 1 AM
+# This is a simple health check that logs the current timestamp
+0 1 * * * echo "$(date): Daily health check completed" >> /home/another/logs/cron/cron.log 2>&1
+
+# Example scheduled tasks (uncomment and customize as needed):
+
+# Log rotation - rotate nginx access logs daily at 2 AM
+# 0 2 * * * /usr/sbin/logrotate /etc/logrotate.d/nginx
+
+# PHP session cleanup - clean old PHP sessions every hour
+# 0 * * * * find /var/lib/php/sessions -type f -mmin +60 -delete
+
+# Temporary file cleanup - clean temp files daily at 3 AM
+# 0 3 * * * find /tmp -type f -mtime +7 -delete
+
+# Database backup example (uncomment and customize)
+# 0 4 * * * /usr/local/bin/backup-database.sh
+
+# Cache cleanup - clear application cache daily at 5 AM
+# 0 5 * * * find /var/cache -type f -mtime +7 -delete
+
+# Security updates check - check for updates weekly (Sundays at 6 AM)
+# 0 6 * * 0 /usr/local/bin/security-check.sh
+
+# Application health check - check application health every 5 minutes
+# */5 * * * * /usr/local/bin/health-check.sh
+
+# SSL certificate renewal check - check SSL certificates daily at 7 AM
+# 0 7 * * * /usr/local/bin/ssl-check.sh
+
+# Performance monitoring - log system metrics every 10 minutes
+# */10 * * * * /usr/local/bin/system-metrics.sh
+
+# Note: All cron jobs run as the another user by default
+# To add custom cron jobs, edit this file or use 'crontab -e' command

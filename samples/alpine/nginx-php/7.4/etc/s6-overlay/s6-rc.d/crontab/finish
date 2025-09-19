@@ -1,0 +1,4 @@
+#!/bin/sh
+# Cleanup script for crontab service
+# Kill any remaining cron processes
+pkill crond || true

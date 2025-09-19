@@ -1,0 +1,16 @@
+#!/bin/sh
+# Crontab service for s6-overlay
+# This service manages cron daemon for scheduled tasks
+
+# Create crontab directories if they don't exist
+mkdir -p /var/spool/cron/crontabs
+
+# Set up crontab for the another user
+if [ -f /etc/crontab ]; then
+    cp /etc/crontab /var/spool/cron/crontabs/another
+    chown another:another /var/spool/cron/crontabs/another
+    chmod 600 /var/spool/cron/crontabs/another
+fi
+
+# Start crond daemon with verbose logging
+exec crond -f -l 2

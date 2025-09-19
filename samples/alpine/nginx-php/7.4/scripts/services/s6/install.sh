@@ -12,7 +12,7 @@ echo "Installing s6-overlay..."
 S6_OVERLAY_VERSION=${S6_OVERLAY_VERSION:-3.2.1.0}
 
 echo "Installing s6-overlay version $S6_OVERLAY_VERSION..."
-apk add --no-cache curl && \
+apk add --no-cache curl dcron && \
     curl -L https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz | tar -C / -Jxpf - && \
     curl -L https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz | tar -C / -Jxpf - && \
     apk del curl

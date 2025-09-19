@@ -27,7 +27,7 @@ RUN /dockerfiler/scripts/services/s6/install.sh && \
     /dockerfiler/scripts/cleanup.sh
 
 # Create application directory structure and logs directory
-RUN mkdir -p /home/another/app/public /home/another/logs/nginx /home/another/logs/php-fpm /home/another/run
+RUN mkdir -p /home/another/app/public /home/another/logs/nginx /home/another/logs/php-fpm /home/another/logs/cron /home/another/run
 
 # Security: Set proper permissions for all directories and files
 RUN chown -R another:another /home/another/app /home/another/logs /home/another/run && \
